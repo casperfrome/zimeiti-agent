@@ -153,7 +153,7 @@ export default function CopywriteDetail() {
           <button className="btn-secondary" onClick={() => setPolishOpen(true)} disabled={polishing}>
             ✨ AI 润色
           </button>
-          <button className="btn-primary" onClick={save} disabled={!dirty || saving}>
+          <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? '保存中…' : '保存'}
           </button>
         </div>
