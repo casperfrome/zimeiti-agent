@@ -12,6 +12,8 @@ class CopywriteSummary(BaseModel):
     title: str
     updated_at: datetime
     total_tokens: int | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
     estimated_cost_cny: float | None = None
 
 
@@ -24,6 +26,8 @@ class CopywriteDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     total_tokens: int | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
     estimated_cost_cny: float | None = None
     versions: list["CopywriteVersionOut"] = []
 

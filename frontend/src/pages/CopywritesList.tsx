@@ -89,7 +89,7 @@ export default function CopywritesList() {
             <div className="mt-3 text-xs text-ink-mute">更新于 {relativeTime(it.updated_at)}</div>
             {it.total_tokens != null && (
               <div className="mt-1 text-xs text-ink-mute/70">
-                Token {it.total_tokens.toLocaleString()}
+                Token {it.total_tokens.toLocaleString()}（输入 {it.prompt_tokens?.toLocaleString() ?? 0}，输出 {it.completion_tokens?.toLocaleString() ?? 0}）
                 {it.estimated_cost_cny != null && `  ·  ¥${it.estimated_cost_cny.toFixed(6)}`}
               </div>
             )}

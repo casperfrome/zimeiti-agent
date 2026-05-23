@@ -46,13 +46,15 @@ def list_copywrites(db: Session = Depends(get_db)):
         db.query(
             CopywriteVersion.copywrite_id,
             func.sum(CopywriteVersion.total_tokens).label("total_tokens"),
+            func.sum(CopywriteVersion.prompt_tokens).label("prompt_tokens"),
+            func.sum(CopywriteVersion.completion_tokens).label("completion_tokens"),
             func.sum(CopywriteVersion.estimated_cost_cny).label("estimated_cost_cny"),
         )
         .group_by(CopywriteVersion.copywrite_id)
         .subquery()
     )
     rows = (
-        db.query(Copywrite, subq.c.total_tokens, subq.c.estimated_cost_cny)
+        db.query(Copywrite, subq.c.total_tokens, subq.c.prompt_tokens, subq.c.completion_tokens, subq.c.estimated_cost_cny)
         .outerjoin(subq, Copywrite.id == subq.c.copywrite_id)
         .order_by(Copywrite.updated_at.desc())
         .all()
@@ -63,9 +65,11 @@ def list_copywrites(db: Session = Depends(get_db)):
             title=c.title,
             updated_at=c.updated_at,
             total_tokens=tokens,
+            prompt_tokens=pt,
+            completion_tokens=ct,
             estimated_cost_cny=float(cost) if cost is not None else None,
         )
-        for c, tokens, cost in rows
+        for c, tokens, pt, ct, cost in rows
     ]
 
 

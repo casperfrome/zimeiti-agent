@@ -3,6 +3,8 @@ export interface CopywriteSummary {
   title: string
   updated_at: string
   total_tokens: number | null
+  prompt_tokens: number | null
+  completion_tokens: number | null
   estimated_cost_cny: number | null
 }
 

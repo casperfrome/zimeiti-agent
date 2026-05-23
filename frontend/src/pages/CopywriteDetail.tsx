@@ -166,7 +166,7 @@ export default function CopywriteDetail() {
                     </div>
                     {v.total_tokens != null && (
                       <span className="text-ink-mute">
-                        Token {v.total_tokens.toLocaleString()}
+                        Token {v.total_tokens.toLocaleString()}（输入 {v.prompt_tokens?.toLocaleString() ?? 0}，输出 {v.completion_tokens?.toLocaleString() ?? 0}）
                         {v.estimated_cost_cny != null &&
                           `  ·  ¥${v.estimated_cost_cny.toFixed(6)}`}
                       </span>
