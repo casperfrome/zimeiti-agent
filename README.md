@@ -10,9 +10,9 @@
 
 | 入口 | 路由 | 说明 |
 |---|---|---|
-| 所有文案 | `/` | 卡片列表，显示最近更新时间，支持删除 |
+| 所有文案 | `/` | 卡片列表，显示最近更新时间、Token 总消耗，支持删除 |
 | 新建文案 | `/copywrites/new` | 输入描述 → 选模型与 Prompt → 流式生成 → 自动保存（支持联网搜索、重新生成） |
-| 文案详情 | `/copywrites/:id` | 自由编辑标题/正文 / AI 润色（弹出层预览后采用） / 手动保存落库 |
+| 文案详情 | `/copywrites/:id` | 自由编辑标题/正文 / AI 润色（弹出层预览后采用） / 手动保存落库 / 版本历史与 Token 消耗明细 |
 | Prompt | `/prompts` | 按「文案生成 / 文案润色」Tab 维护多套 Prompt，可设默认 |
 | 模型与 Key | `/models` | 维护 Provider 接入信息（API Key / Base URL），管理可用模型，设全局默认 |
 | 图片生成 | `/images` | 占位页（待实现分镜生成、封面图、风格化滤镜） |
@@ -59,7 +59,7 @@ npm run dev
 ### AI 对话
 - 全部调用走 SSE 流式响应（`text/event-stream`），事件 `delta` 增量文本、`done` 结束（生成会附带新文案 id）、`error` 报错、`usage` Token 用量及费用、`search` 联网搜索状态
 - 生成结束后自动落库为一条新文案并进入详情页
-- 润色结果不自动落库，需用户手动「采用到正文」→ 再点「保存」
+- 润色流结束后自动保存为 `polish` 版本，同时记录 Token 消耗
 
 ### 联网搜索
 - 默认开启，底层走 DuckDuckGo HTML 搜索，自动注入搜索摘要到 AI 上下文中
@@ -70,10 +70,12 @@ npm run dev
 - DeepSeek V4 Flash / V4 Pro 按官方公开定价计算（输入缓存命中/未命中 + 输出）
 - 价格数据内置于 `ai_client.py`，标注日期和活动折扣
 - 非 DeepSeek 模型仅展示 Token 用量，不估算费用
+- Token 消耗（输入/输出/总计/费用）持久化到数据库，在文案列表卡片和详情页的版本历史中展示
 
 ### 版本追踪
-- 每次保存、AI 生成、AI 润色（手动保存时）均记录 `copywrite_versions`
+- 每次 AI 生成、AI 润色、手动保存均记录 `copywrite_versions`
 - 标记来源：`initial` / `user_edit` / `polish`
+- 每条 AI 生成的版本自动记录 Token 消耗（Provider、模型、输入/输出/缓存 Token、费用）
 
 ### Provider & Model 管理
 - 支持任意 OpenAI 兼容 API：修改 Base URL 即可接入
