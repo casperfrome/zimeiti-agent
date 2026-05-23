@@ -21,12 +21,20 @@ export default function PromptsManager() {
   const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState({ name: '', content: '', is_default: false })
 
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    promptsApi.list(tab).then((data) => {
+      if (active) { setPrompts(data); setLoading(false) }
+    }).catch(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [tab])
+
   async function refresh() {
     setLoading(true)
     setPrompts(await promptsApi.list(tab))
     setLoading(false)
   }
-  useEffect(() => { refresh() }, [tab])
 
   function openEdit(p: PromptOut) {
     setEditing(p); setDraft({ name: p.name, content: p.content, is_default: p.is_default })

@@ -34,7 +34,7 @@ export default function App() {
   return (
     <ToastProvider>
       <Layout>
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           <Routes location={location} key={location.pathname}>
             <Route path="/"                element={<PageShell><CopywritesList /></PageShell>} />
             <Route path="/copywrites/new"  element={<PageShell><CopywriteNew /></PageShell>} />

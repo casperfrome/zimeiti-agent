@@ -19,12 +19,20 @@ export default function ModelsManager() {
   const [addingFor, setAddingFor] = useState<string | null>(null)
   const [newModel, setNewModel] = useState({ model_id: '', display_name: '' })
 
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    Promise.all([settingsApi.listProviders(), settingsApi.listModels()]).then(([ps, ms]) => {
+      if (active) { setProviders(ps); setModels(ms); setLoading(false) }
+    }).catch(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+
   async function refresh() {
     setLoading(true)
     const [ps, ms] = await Promise.all([settingsApi.listProviders(), settingsApi.listModels()])
     setProviders(ps); setModels(ms); setLoading(false)
   }
-  useEffect(() => { refresh() }, [])
 
   async function saveKey() {
     if (!editKey) return

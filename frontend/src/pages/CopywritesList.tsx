@@ -20,11 +20,20 @@ export default function CopywritesList() {
   const toast = useToast()
   const [items, setItems] = useState<CopywriteSummary[] | null>(null)
 
+  useEffect(() => {
+    let active = true
+    async function load() {
+      try { const data = await copywritesApi.list(); if (active) setItems(data) }
+      catch (e: any) { if (active) toast.push(e.message, 'err') }
+    }
+    load()
+    return () => { active = false }
+  }, [])
+
   async function refresh() {
     try { setItems(await copywritesApi.list()) }
     catch (e: any) { toast.push(e.message, 'err') }
   }
-  useEffect(() => { refresh() }, [])
 
   async function remove(id: number, title: string) {
     if (!confirm(`确认删除文案 "${title}"？`)) return

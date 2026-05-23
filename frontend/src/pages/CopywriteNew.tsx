@@ -29,15 +29,18 @@ export default function CopywriteNew() {
   const outputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    let active = true
     Promise.all([
       settingsApi.listModels(),
       promptsApi.list('copywrite_generate'),
     ]).then(([ms, ps]) => {
+      if (!active) return
       setModels(ms)
       setPrompts(ps)
       setModelId(ms.find((m) => m.is_default)?.id)
       setPromptId(ps.find((p) => p.is_default)?.id)
     })
+    return () => { active = false }
   }, [])
 
   useEffect(() => {

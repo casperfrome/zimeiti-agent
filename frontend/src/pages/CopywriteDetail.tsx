@@ -40,8 +40,10 @@ export default function CopywriteDetail() {
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    copywritesApi.get(cid).then((c) => { setCw(c); setTitle(c.title); setContent(c.content) }).catch((e) => toast.push(e.message, 'err'))
+    let active = true
+    copywritesApi.get(cid).then((c) => { if (active) { setCw(c); setTitle(c.title); setContent(c.content) } }).catch((e) => { if (active) toast.push(e.message, 'err') })
     Promise.all([settingsApi.listModels(), promptsApi.list('copywrite_polish')]).then(([ms, ps]) => {
+      if (!active) return
       setModels(ms); setPrompts(ps)
       setPolishModelId(ms.find((m) => m.is_default)?.id)
       setPolishPromptId(ps.find((p) => p.is_default)?.id)
@@ -51,6 +53,7 @@ export default function CopywriteDetail() {
       const parts = [formatAiUsage(locState.usage), formatSearchStatus(locState.search)].filter(Boolean)
       setGenUsageSummary(parts.join('　'))
     }
+    return () => { active = false }
   }, [cid])
 
   useEffect(() => {
