@@ -15,34 +15,28 @@ const pageVariants = {
   exit:    { opacity: 0, y: -6, transition: { duration: 0.16 } },
 }
 
-function PageShell({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      variants={pageVariants}
-      initial="initial"
-      animate="enter"
-      exit="exit"
-      className="h-full"
-    >
-      {children}
-    </motion.div>
-  )
-}
-
 export default function App() {
   const location = useLocation()
   return (
     <ToastProvider>
       <Layout>
-        <AnimatePresence>
-          <Routes location={location} key={location.pathname}>
-            <Route path="/"                element={<PageShell><CopywritesList /></PageShell>} />
-            <Route path="/copywrites/new"  element={<PageShell><CopywriteNew /></PageShell>} />
-            <Route path="/copywrites/:id"  element={<PageShell><CopywriteDetail /></PageShell>} />
-            <Route path="/prompts"         element={<PageShell><PromptsManager /></PageShell>} />
-            <Route path="/models"          element={<PageShell><ModelsManager /></PageShell>} />
-            <Route path="/images"          element={<PageShell><ImagesPlaceholder /></PageShell>} />
-          </Routes>
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={location.pathname}
+            variants={pageVariants}
+            initial="initial"
+            animate="enter"
+            exit="exit"
+          >
+            <Routes location={location}>
+              <Route path="/"                element={<CopywritesList />} />
+              <Route path="/copywrites/new"  element={<CopywriteNew />} />
+              <Route path="/copywrites/:id"  element={<CopywriteDetail />} />
+              <Route path="/prompts"         element={<PromptsManager />} />
+              <Route path="/models"          element={<ModelsManager />} />
+              <Route path="/images"          element={<ImagesPlaceholder />} />
+            </Routes>
+          </motion.div>
         </AnimatePresence>
       </Layout>
     </ToastProvider>

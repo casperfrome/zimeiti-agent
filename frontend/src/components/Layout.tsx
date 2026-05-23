@@ -80,7 +80,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[960px] px-10 py-10">{children}</div>
+        <div className="relative mx-auto max-w-[960px] px-10 py-10">{children}</div>
       </main>
     </div>
   )
