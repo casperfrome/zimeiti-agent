@@ -11,6 +11,8 @@ class CopywriteSummary(BaseModel):
     id: int
     title: str
     updated_at: datetime
+    total_tokens: int | None = None
+    estimated_cost_cny: float | None = None
 
 
 class CopywriteDetail(BaseModel):
@@ -21,6 +23,25 @@ class CopywriteDetail(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
+    total_tokens: int | None = None
+    estimated_cost_cny: float | None = None
+    versions: list["CopywriteVersionOut"] = []
+
+
+class CopywriteVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    source: str
+    content: str
+    created_at: datetime
+    provider_key: str | None = None
+    model_id: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+    prompt_cache_hit_tokens: int | None = None
+    prompt_cache_miss_tokens: int | None = None
+    estimated_cost_cny: float | None = None
 
 
 class CopywriteUpdate(BaseModel):

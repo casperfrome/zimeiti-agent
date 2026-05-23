@@ -87,6 +87,12 @@ export default function CopywritesList() {
               </button>
             </div>
             <div className="mt-3 text-xs text-ink-mute">更新于 {relativeTime(it.updated_at)}</div>
+            {it.total_tokens != null && (
+              <div className="mt-1 text-xs text-ink-mute/70">
+                Token {it.total_tokens.toLocaleString()}
+                {it.estimated_cost_cny != null && `  ·  ¥${it.estimated_cost_cny.toFixed(6)}`}
+              </div>
+            )}
           </motion.div>
         ))}
       </div>

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -35,6 +35,16 @@ class CopywriteVersion(Base):
     content: Mapped[str] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(20))  # initial / user_edit / polish
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    # Token usage for AI-generated versions
+    provider_key: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    model_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    prompt_cache_hit_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    prompt_cache_miss_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estimated_cost_cny: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     copywrite: Mapped[Copywrite] = relationship(back_populates="versions")
 

@@ -6,7 +6,7 @@ import { streamSSE } from '../api/client'
 import { copywritesApi } from '../api/copywrites'
 import { promptsApi } from '../api/prompts'
 import { settingsApi } from '../api/settings'
-import type { CopywriteDetail as CW, ModelOut, PromptOut } from '../api/types'
+import type { CopywriteDetail as CW, CopywriteVersionOut, ModelOut, PromptOut } from '../api/types'
 import Modal from '../components/Modal'
 import Select from '../components/Select'
 import Spinner from '../components/Spinner'
@@ -28,6 +28,7 @@ export default function CopywriteDetail() {
   const [prompts, setPrompts] = useState<PromptOut[]>([])
 
   const [genUsageSummary, setGenUsageSummary] = useState('')
+  const [versions, setVersions] = useState<CopywriteVersionOut[]>([])
 
   const [polishOpen, setPolishOpen] = useState(false)
   const [polishModelId, setPolishModelId] = useState<number | undefined>()
@@ -41,7 +42,7 @@ export default function CopywriteDetail() {
 
   useEffect(() => {
     let active = true
-    copywritesApi.get(cid).then((c) => { if (active) { setCw(c); setTitle(c.title); setContent(c.content) } }).catch((e) => { if (active) toast.push(e.message, 'err') })
+    copywritesApi.get(cid).then((c) => { if (active) { setCw(c); setTitle(c.title); setContent(c.content); setVersions(c.versions) } }).catch((e) => { if (active) toast.push(e.message, 'err') })
     Promise.all([settingsApi.listModels(), promptsApi.list('copywrite_polish')]).then(([ms, ps]) => {
       if (!active) return
       setModels(ms); setPrompts(ps)
@@ -90,7 +91,9 @@ export default function CopywriteDetail() {
             const search = formatSearchStatus(data.search)
             setPolishUsageSummary(usage)
             setPolishSearchSummary(search)
-            toast.push('润色完成。')
+            // 刷新版本历史以显示已持久化的 token 数据
+            copywritesApi.get(cid).then((c) => { setCw(c); setVersions(c.versions) }).catch((e) => toast.push(e.message, 'err'))
+            toast.push('润色完成，新版已自动记录。')
           }
           else if (event === 'error') { toast.push(data.message ?? '润色失败', 'err') }
         },
@@ -141,6 +144,45 @@ export default function CopywriteDetail() {
           placeholder="文案内容…"
         />
       </motion.div>
+
+      {/* 版本历史 */}
+      {versions.length > 0 && (
+        <div className="mt-6">
+          <h3 className="mb-3 text-sm font-semibold text-ink">版本历史</h3>
+          <div className="space-y-2">
+            {versions.map((v) => {
+              const sourceLabel =
+                v.source === 'initial' ? 'AI 生成' :
+                v.source === 'polish' ? 'AI 润色' :
+                '手动编辑'
+              return (
+                <div key={v.id} className="rounded-ios bg-sage-50/40 px-4 py-3 text-xs text-ink-soft">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-sage-200/60 px-1.5 py-0.5 font-medium text-ink">
+                        {sourceLabel}
+                      </span>
+                      <span>{new Date(v.created_at + 'Z').toLocaleString()}</span>
+                    </div>
+                    {v.total_tokens != null && (
+                      <span className="text-ink-mute">
+                        Token {v.total_tokens.toLocaleString()}
+                        {v.estimated_cost_cny != null &&
+                          `  ·  ¥${v.estimated_cost_cny.toFixed(6)}`}
+                      </span>
+                    )}
+                  </div>
+                  {v.model_id && (
+                    <div className="mt-1 text-ink-mute/60">
+                      {v.provider_key} / {v.model_id}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="sticky bottom-0 mt-4 -mx-10 border-t border-black/[0.05] glass px-10 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 text-xs text-ink-mute">

@@ -3,7 +3,8 @@ from typing import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 
 from ..ai_client import (
     get_provider,
@@ -41,16 +42,41 @@ def _title_from_description(desc: str) -> str:
 
 @router.get("", response_model=list[CopywriteSummary])
 def list_copywrites(db: Session = Depends(get_db)):
-    return (
-        db.query(Copywrite)
+    subq = (
+        db.query(
+            CopywriteVersion.copywrite_id,
+            func.sum(CopywriteVersion.total_tokens).label("total_tokens"),
+            func.sum(CopywriteVersion.estimated_cost_cny).label("estimated_cost_cny"),
+        )
+        .group_by(CopywriteVersion.copywrite_id)
+        .subquery()
+    )
+    rows = (
+        db.query(Copywrite, subq.c.total_tokens, subq.c.estimated_cost_cny)
+        .outerjoin(subq, Copywrite.id == subq.c.copywrite_id)
         .order_by(Copywrite.updated_at.desc())
         .all()
     )
+    return [
+        CopywriteSummary(
+            id=c.id,
+            title=c.title,
+            updated_at=c.updated_at,
+            total_tokens=tokens,
+            estimated_cost_cny=float(cost) if cost is not None else None,
+        )
+        for c, tokens, cost in rows
+    ]
 
 
 @router.get("/{cid}", response_model=CopywriteDetail)
 def get_copywrite(cid: int, db: Session = Depends(get_db)):
-    c = db.get(Copywrite, cid)
+    c = (
+        db.query(Copywrite)
+        .options(selectinload(Copywrite.versions))
+        .filter(Copywrite.id == cid)
+        .first()
+    )
     if c is None:
         raise HTTPException(404, "copywrite not found")
     return c
@@ -127,7 +153,18 @@ def generate(payload: GenerateRequest):
             )
             db.add(c)
             db.flush()
-            db.add(CopywriteVersion(copywrite_id=c.id, content=full, source="initial"))
+            _token_fields = {
+                "provider_key", "model_id", "prompt_tokens",
+                "completion_tokens", "total_tokens",
+                "prompt_cache_hit_tokens", "prompt_cache_miss_tokens",
+                "estimated_cost_cny",
+            }
+            db.add(CopywriteVersion(
+                copywrite_id=c.id,
+                content=full,
+                source="initial",
+                **({k: v for k, v in usage.items() if k in _token_fields} if usage else {}),
+            ))
             db.commit()
             yield _sse("done", {"id": c.id, "title": c.title, "usage": usage, "search": search_status})
         finally:
@@ -138,7 +175,7 @@ def generate(payload: GenerateRequest):
 
 @router.post("/{cid}/polish")
 def polish(cid: int, payload: PolishRequest):
-    """SSE 流式润色现有文案，不自动落库。"""
+    """SSE 流式润色现有文案，结束后自动落库为 polish 版本。"""
 
     def event_gen() -> Iterator[str]:
         db = SessionLocal()
@@ -164,16 +201,34 @@ def polish(cid: int, payload: PolishRequest):
                     if status.warning:
                         yield _sse("search", search_status)
 
+                buf: list[str] = []
                 usage = None
                 for event in stream_chat(provider, model.model_id, prompt.content, c.content, search_results):
                     if event.type == "delta" and event.text:
+                        buf.append(event.text)
                         yield _sse("delta", {"text": event.text})
                     elif event.type == "usage":
                         usage = event.usage
             except Exception as e:  # noqa: BLE001
                 yield _sse("error", {"message": f"AI 调用失败: {e}"})
                 return
-            yield _sse("done", {"usage": usage, "search": search_status})
+
+            full = "".join(buf).strip()
+            _token_fields = {
+                "provider_key", "model_id", "prompt_tokens",
+                "completion_tokens", "total_tokens",
+                "prompt_cache_hit_tokens", "prompt_cache_miss_tokens",
+                "estimated_cost_cny",
+            }
+            ver = CopywriteVersion(
+                copywrite_id=c.id,
+                content=full,
+                source="polish",
+                **({k: v for k, v in usage.items() if k in _token_fields} if usage else {}),
+            )
+            db.add(ver)
+            db.commit()
+            yield _sse("done", {"version_id": ver.id, "usage": usage, "search": search_status})
         finally:
             db.close()
 

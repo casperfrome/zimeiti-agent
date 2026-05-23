@@ -2,12 +2,30 @@ export interface CopywriteSummary {
   id: number
   title: string
   updated_at: string
+  total_tokens: number | null
+  estimated_cost_cny: number | null
+}
+
+export interface CopywriteVersionOut {
+  id: number
+  content: string
+  source: 'initial' | 'user_edit' | 'polish'
+  created_at: string
+  provider_key: string | null
+  model_id: string | null
+  prompt_tokens: number | null
+  completion_tokens: number | null
+  total_tokens: number | null
+  prompt_cache_hit_tokens: number | null
+  prompt_cache_miss_tokens: number | null
+  estimated_cost_cny: number | null
 }
 
 export interface CopywriteDetail extends CopywriteSummary {
   description: string
   content: string
   created_at: string
+  versions: CopywriteVersionOut[]
 }
 
 export interface PromptOut {
