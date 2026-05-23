@@ -25,6 +25,11 @@ export default function CopywriteNew() {
   const [text, setText] = useState('')
   const [usageSummary, setUsageSummary] = useState('')
   const [searchSummary, setSearchSummary] = useState('')
+  const [doneResult, setDoneResult] = useState<{
+    id: number
+    usage?: any
+    search?: any
+  } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const outputRef = useRef<HTMLDivElement>(null)
 
@@ -56,6 +61,7 @@ export default function CopywriteNew() {
     setText('')
     setUsageSummary('')
     setSearchSummary('')
+    setDoneResult(null)
     const ctrl = new AbortController()
     abortRef.current = ctrl
     try {
@@ -79,8 +85,8 @@ export default function CopywriteNew() {
             const search = formatSearchStatus(data.search)
             setUsageSummary(usage)
             setSearchSummary(search)
+            setDoneResult({ id: data.id, usage: data.usage, search: data.search })
             toast.push('已生成并保存。')
-            nav(`/copywrites/${data.id}`, { replace: true, state: { usage: data.usage, search: data.search } })
           } else if (event === 'error') {
             toast.push(data.message ?? '生成失败', 'err')
           }
@@ -186,10 +192,30 @@ export default function CopywriteNew() {
             {text}
           </div>
           {!streaming && text && (
-            <div className="mt-3 space-y-1 text-xs text-ink-mute">
-              <div>已自动保存为草稿，正在打开编辑页...</div>
-              {usageSummary && <div>{usageSummary}</div>}
-              {searchSummary && <div>{searchSummary}</div>}
+            <div className="mt-4 space-y-3">
+              <div className="space-y-1 text-xs text-ink-mute">
+                <div>已自动保存为草稿</div>
+                {usageSummary && <div>{usageSummary}</div>}
+                {searchSummary && <div>{searchSummary}</div>}
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="btn-secondary" onClick={start}>
+                  重新生成
+                </button>
+                {doneResult && (
+                  <button
+                    className="btn-primary"
+                    onClick={() =>
+                      nav(`/copywrites/${doneResult.id}`, {
+                        replace: true,
+                        state: { usage: doneResult.usage, search: doneResult.search },
+                      })
+                    }
+                  >
+                    查看详情
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </motion.div>
