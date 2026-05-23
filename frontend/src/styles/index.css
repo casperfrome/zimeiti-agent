@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: theme('colors.canvas');
+  color: theme('colors.ink.DEFAULT');
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* iOS-style scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(31, 42, 30, 0.18);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(31, 42, 30, 0.32);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Selection */
+::selection {
+  background: theme('colors.sage.200');
+  color: theme('colors.ink.DEFAULT');
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-ios bg-sage-400 px-4 py-2 text-sm font-medium text-white shadow-card transition-transform active:scale-[0.97] hover:bg-sage-500 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-ios bg-white px-4 py-2 text-sm font-medium text-ink shadow-inset transition-transform active:scale-[0.97] hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-ios px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-sage-50 hover:text-ink;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-ios px-3 py-1.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-50;
+  }
+
+  .card {
+    @apply rounded-sheet bg-surface shadow-card;
+  }
+
+  .input {
+    @apply w-full rounded-ios bg-white px-3.5 py-2.5 text-sm text-ink shadow-inset placeholder:text-ink-mute focus:outline-none focus:ring-2 focus:ring-sage-300/60;
+  }
+
+  .textarea {
+    @apply w-full rounded-ios bg-white px-4 py-3 text-[15px] leading-7 text-ink shadow-inset placeholder:text-ink-mute focus:outline-none focus:ring-2 focus:ring-sage-300/60 resize-none;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-sage-50 px-2.5 py-1 text-xs text-sage-700;
+  }
+
+  .label {
+    @apply text-xs font-medium uppercase tracking-wider text-ink-mute;
+  }
+}
+
+/* Streaming caret blink */
+@keyframes caret-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.caret::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  vertical-align: -2px;
+  margin-left: 2px;
+  background: theme('colors.sage.500');
+  animation: caret-blink 1s steps(1) infinite;
+}
