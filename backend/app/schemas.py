@@ -230,6 +230,9 @@ class VideoCreateRequest(BaseModel):
     bgm_volume: float = 0.1
     target_duration_seconds: Optional[float] = None
     region: str = "cn"
+    subtitle_font_color: str = "#FFD400"
+    subtitle_stroke_color: str = "#000000"
+    subtitle_font_size: Optional[int] = None
 
 
 class VideoSummary(BaseModel):
@@ -240,6 +243,7 @@ class VideoSummary(BaseModel):
     bgm_id: int | None = None
     status: str
     video_path: str | None = None
+    thumbnail_path: str | None = None
     video_duration: float | None = None
     created_at: datetime
 
@@ -253,5 +257,8 @@ class VideoDetail(VideoSummary):
     bgm_volume: float
     target_duration_seconds: float | None = None
     region: str
+    subtitle_font_color: str = "#FFD400"
+    subtitle_stroke_color: str = "#000000"
+    subtitle_font_size: int | None = None
     voice_path: str | None = None
     error: str | None = None

@@ -16,6 +16,7 @@ from ..services.sse import sse_event
 from ..services.storage import abs_path, rel_path, remove_dir, video_dir
 from ..services.video_synth import (
     build_slideshow,
+    normalize_subtitle_style,
     prepare_images,
     resolve_video_size,
     synthesize_voice,
@@ -87,6 +88,11 @@ def create_video(payload: VideoCreateRequest):
 
             try:
                 video_size = resolve_video_size(payload.video_ratio_preset)
+                subtitle_style = normalize_subtitle_style(
+                    font_color=payload.subtitle_font_color,
+                    stroke_color=payload.subtitle_stroke_color,
+                    font_size=payload.subtitle_font_size,
+                )
             except ValueError as e:
                 yield sse_event("error", {"message": str(e)})
                 return
@@ -104,6 +110,9 @@ def create_video(payload: VideoCreateRequest):
                 bgm_volume=payload.bgm_volume,
                 target_duration_seconds=payload.target_duration_seconds,
                 region=payload.region,
+                subtitle_font_color=subtitle_style.font_color,
+                subtitle_stroke_color=subtitle_style.stroke_color,
+                subtitle_font_size=subtitle_style.font_size,
                 status="running",
             )
             db.add(v)
@@ -145,6 +154,7 @@ def create_video(payload: VideoCreateRequest):
                 total_duration = payload.target_duration_seconds or voice_duration
                 yield sse_event("stage", {"stage": "build", "progress": 0.6})
                 output_path = work_dir / "output.mp4"
+                thumbnail_path = work_dir / "thumbnail.jpg"
                 bgm_path = abs_path(bgm.file_path) if bgm and bgm.file_path else None
                 build_slideshow(
                     image_paths=processed,
@@ -155,8 +165,14 @@ def create_video(payload: VideoCreateRequest):
                     fps=payload.fps,
                     voice_volume=payload.voice_volume,
                     bgm_volume=payload.bgm_volume,
+                    subtitle_text=c.content,
+                    subtitle_font_color=subtitle_style.font_color,
+                    subtitle_stroke_color=subtitle_style.stroke_color,
+                    subtitle_font_size=subtitle_style.font_size,
+                    thumbnail_path=thumbnail_path,
                 )
                 v.video_path = rel_path(output_path)
+                v.thumbnail_path = rel_path(thumbnail_path)
                 v.video_duration = total_duration
                 v.status = "done"
                 db.commit()
@@ -164,6 +180,7 @@ def create_video(payload: VideoCreateRequest):
                 yield sse_event("done", {
                     "video_id": v.id,
                     "video_path": v.video_path,
+                    "thumbnail_path": v.thumbnail_path,
                     "video_duration": v.video_duration,
                 })
             except Exception as exc:  # noqa: BLE001

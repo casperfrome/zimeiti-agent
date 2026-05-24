@@ -15,9 +15,7 @@ export const videosApi = {
 export const COSYVOICE_VOICES: Record<string, { id: string; label: string }[]> = {
   v3: [
     { id: 'longanyang',     label: '龙安阳 · 标准男声 (longanyang)' },
-    { id: 'longxiaochun',   label: '龙小淳 · 标准女声 (longxiaochun)' },
-    { id: 'longjing',       label: '龙婧 · 知性女声 (longjing)' },
-    { id: 'longhua',        label: '龙华 · 沉稳男声 (longhua)' },
+    { id: 'longxiaochun_v3', label: '龙小淳 V3 · 标准女声 (longxiaochun_v3)' },
   ],
   v2: [
     { id: 'longxiaochun_v2', label: '龙小淳 V2 (longxiaochun_v2)' },
@@ -26,6 +24,7 @@ export const COSYVOICE_VOICES: Record<string, { id: string; label: string }[]> =
 }
 
 export function voicesForModel(modelId: string): { id: string; label: string }[] {
+  if (modelId.startsWith('cosyvoice-v3.5')) return []
   if (modelId.startsWith('cosyvoice-v3')) return COSYVOICE_VOICES.v3
   if (modelId.startsWith('cosyvoice-v2')) return COSYVOICE_VOICES.v2
   return COSYVOICE_VOICES.v3

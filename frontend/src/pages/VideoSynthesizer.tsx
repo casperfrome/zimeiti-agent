@@ -14,6 +14,7 @@ import type {
   VideoDetail,
   VideoSummary,
 } from '../api/types'
+import Modal from '../components/Modal'
 import Select from '../components/Select'
 import Spinner from '../components/Spinner'
 import { useToast } from '../components/Toast'
@@ -52,6 +53,10 @@ export default function VideoSynthesizer() {
   const [bgmVolume, setBgmVolume] = useState(0.08)
   const [targetDuration, setTargetDuration] = useState<string>('')
   const [region, setRegion] = useState<'cn' | 'sg'>('cn')
+  const [subtitleFontColor, setSubtitleFontColor] = useState('#FFD400')
+  const [subtitleStrokeColor, setSubtitleStrokeColor] = useState('#000000')
+  const [subtitleAutoSize, setSubtitleAutoSize] = useState(true)
+  const [subtitleFontSize, setSubtitleFontSize] = useState(65)
 
   // runtime
   const [running, setRunning] = useState(false)
@@ -59,6 +64,9 @@ export default function VideoSynthesizer() {
   const [stage, setStage] = useState<string>('')
   const [logs, setLogs] = useState<string[]>([])
   const [history, setHistory] = useState<VideoSummary[]>([])
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   // init
@@ -98,24 +106,55 @@ export default function VideoSynthesizer() {
     if (!model) return
     const voices = voicesForModel(model.model_id)
     if (!voices.some((v) => v.id === ttsVoice)) {
-      setTtsVoice(voices[0]?.id ?? 'longanyang')
+      setTtsVoice(voices[0]?.id ?? '')
     }
   }, [ttsModelId, ttsModels])
+
+  useEffect(() => {
+    if (!running || startedAt == null) return
+    setElapsedMs(Date.now() - startedAt)
+    const timer = window.setInterval(() => {
+      setElapsedMs(Date.now() - startedAt)
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [running, startedAt])
 
   const currentBgm = useMemo(() => bgms.find((b) => b.id === bgmId), [bgms, bgmId])
   const voiceOptions = useMemo(() => {
     const model = ttsModels.find((m) => m.id === ttsModelId)
     return model ? voicesForModel(model.model_id) : []
   }, [ttsModelId, ttsModels])
+  const ratioSize = useMemo(() => {
+    return ratioSizeForPreset(ratio)
+  }, [ratio])
+  const resultRatioSize = currentVideo ? ratioSizeForPreset(currentVideo.video_ratio_preset) : ratioSize
+  const resolvedSubtitleFontSize = subtitleAutoSize
+    ? Math.max(28, Math.min(84, Math.round(Math.min(ratioSize.width, ratioSize.height) * 0.06)))
+    : subtitleFontSize
+  const previewFontSize = Math.max(18, Math.min(34, Math.round(resolvedSubtitleFontSize * 0.42)))
+  const previewStrokeWidth = Math.max(1, Math.round(previewFontSize * 0.08))
+  const elapsedLabel = elapsedMs == null ? null : formatElapsed(elapsedMs)
+  const selectedTtsModel = useMemo(() => {
+    return ttsModels.find((m) => m.id === ttsModelId)
+  }, [ttsModelId, ttsModels])
+  const hasVoiceOptions = voiceOptions.length > 0
+  const canStart = copywriteId != null && imageSetId != null && ttsModelId != null && hasVoiceOptions && !!ttsVoice
 
   async function start() {
     if (copywriteId == null || imageSetId == null) {
       toast.push('请选择文案和图片集', 'err'); return
     }
+    if (!hasVoiceOptions || !ttsVoice) {
+      toast.push('当前 TTS 模型没有可用系统音色，请选择 CosyVoice V3 或 V2 模型', 'err'); return
+    }
     setRunning(true)
     setCurrentVideo(null)
     setStage('')
     setLogs([])
+    setPreviewOpen(false)
+    const startTime = Date.now()
+    setStartedAt(startTime)
+    setElapsedMs(0)
     const ctrl = new AbortController(); abortRef.current = ctrl
     const pushLog = (line: string) => setLogs((arr) => [...arr, line])
     try {
@@ -131,6 +170,9 @@ export default function VideoSynthesizer() {
         bgm_volume: bgmVolume,
         target_duration_seconds: targetDuration.trim() ? Number(targetDuration) : undefined,
         region,
+        subtitle_font_color: subtitleFontColor,
+        subtitle_stroke_color: subtitleStrokeColor,
+        subtitle_font_size: subtitleAutoSize ? null : subtitleFontSize,
       }, async (event, data) => {
         if (event === 'start') {
           pushLog(`▷ 视频 #${data.video_id} 开始合成…`)
@@ -155,13 +197,21 @@ export default function VideoSynthesizer() {
       if (e.name !== 'AbortError') toast.push(e.message, 'err')
     } finally {
       setRunning(false)
+      setElapsedMs(Date.now() - startTime)
     }
   }
 
   function stop() { abortRef.current?.abort() }
 
   async function openHistory(v: VideoSummary) {
-    try { setCurrentVideo(await videosApi.get(v.id)); setLogs([]); setStage('done') }
+    try {
+      setCurrentVideo(await videosApi.get(v.id))
+      setLogs([])
+      setStage('done')
+      setStartedAt(null)
+      setElapsedMs(null)
+      setPreviewOpen(false)
+    }
     catch (e: any) { toast.push(e.message, 'err') }
   }
 
@@ -264,7 +314,13 @@ export default function VideoSynthesizer() {
               value={ttsVoice}
               onChange={(v) => setTtsVoice(String(v))}
               options={voiceOptions.map((v) => ({ value: v.id, label: v.label }))}
+              placeholder={selectedTtsModel?.model_id.startsWith('cosyvoice-v3.5') ? 'V3.5 需要复刻/设计音色，请改用 V3/V2' : '请选择音色'}
             />
+            {!hasVoiceOptions && selectedTtsModel?.model_id.startsWith('cosyvoice-v3.5') && (
+              <div className="mt-1.5 text-xs text-red-500">
+                CosyVoice V3.5 不支持 longanyang 等系统音色。当前页面请选择 CosyVoice V3 或 V2。
+              </div>
+            )}
           </div>
         </div>
 
@@ -296,9 +352,97 @@ export default function VideoSynthesizer() {
           </div>
         </div>
 
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <div>
+            <div className="label mb-3">字幕样式</div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="block">
+                <span className="label mb-1.5 block">字体颜色</span>
+                <div className="flex items-center gap-2 rounded-ios bg-white px-3 py-2 shadow-inset">
+                  <input
+                    type="color"
+                    value={isHexColor(subtitleFontColor) ? subtitleFontColor : '#FFD400'}
+                    onChange={(e) => setSubtitleFontColor(e.target.value.toUpperCase())}
+                    className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
+                  />
+                  <input
+                    className="min-w-0 flex-1 bg-transparent text-sm text-ink focus:outline-none"
+                    value={subtitleFontColor}
+                    onChange={(e) => setSubtitleFontColor(e.target.value.toUpperCase())}
+                    maxLength={7}
+                  />
+                </div>
+              </label>
+              <label className="block">
+                <span className="label mb-1.5 block">描边颜色</span>
+                <div className="flex items-center gap-2 rounded-ios bg-white px-3 py-2 shadow-inset">
+                  <input
+                    type="color"
+                    value={isHexColor(subtitleStrokeColor) ? subtitleStrokeColor : '#000000'}
+                    onChange={(e) => setSubtitleStrokeColor(e.target.value.toUpperCase())}
+                    className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
+                  />
+                  <input
+                    className="min-w-0 flex-1 bg-transparent text-sm text-ink focus:outline-none"
+                    value={subtitleStrokeColor}
+                    onChange={(e) => setSubtitleStrokeColor(e.target.value.toUpperCase())}
+                    maxLength={7}
+                  />
+                </div>
+              </label>
+              <div>
+                <span className="label mb-1.5 block">字体大小</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={`chip cursor-pointer transition-colors ${subtitleAutoSize ? 'bg-sage-400 text-white' : ''}`}
+                    onClick={() => setSubtitleAutoSize(true)}
+                  >自适应</button>
+                  <button
+                    type="button"
+                    className={`chip cursor-pointer transition-colors ${!subtitleAutoSize ? 'bg-sage-400 text-white' : ''}`}
+                    onClick={() => setSubtitleAutoSize(false)}
+                  >自定义</button>
+                </div>
+                <input
+                  className="input mt-2"
+                  type="number"
+                  min={12}
+                  max={240}
+                  value={subtitleFontSize}
+                  disabled={subtitleAutoSize}
+                  onChange={(e) => setSubtitleFontSize(Number(e.target.value) || 65)}
+                />
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="label mb-3">字幕预览</div>
+            <div
+              className="flex w-full items-end justify-center rounded-ios bg-black px-4 pb-5 text-center shadow-inset"
+              style={{ aspectRatio: `${ratioSize.width} / ${ratioSize.height}` }}
+            >
+              <div
+                className="max-w-full break-words font-semibold leading-snug"
+                style={{
+                  color: subtitleFontColor,
+                  fontSize: previewFontSize,
+                  WebkitTextStroke: `${previewStrokeWidth}px ${subtitleStrokeColor}`,
+                  textShadow: `0 0 1px ${subtitleStrokeColor}`,
+                }}
+              >
+                这里是字幕预览
+              </div>
+            </div>
+            <div className="mt-1.5 text-xs text-ink-mute">
+              输出字号：{subtitleAutoSize ? `${resolvedSubtitleFontSize}px（自适应）` : `${subtitleFontSize}px`}
+            </div>
+          </div>
+        </div>
+
         <div className="mt-5 flex items-center gap-2">
           {!running ? (
-            <button className="btn-primary" onClick={start} disabled={copywriteId == null || imageSetId == null}>
+            <button className="btn-primary" onClick={start} disabled={!canStart}>
               ▶ 开始合成
             </button>
           ) : (
@@ -314,7 +458,14 @@ export default function VideoSynthesizer() {
           animate={{ opacity: 1, y: 0 }}
           className="card mt-5 p-6"
         >
-          <div className="label mb-3">合成进度</div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="label">合成进度</div>
+            {elapsedLabel && (
+              <div className="rounded-full bg-sage-50 px-2.5 py-1 text-xs font-medium text-ink-soft">
+                合成耗时 {elapsedLabel}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {STAGES.map((s, i) => {
               const reached = currentStageIndex >= i
@@ -349,11 +500,29 @@ export default function VideoSynthesizer() {
               {currentVideo.video_ratio_preset} · {currentVideo.video_duration?.toFixed(2)}s
             </div>
           </div>
-          <video
-            controls
-            src={mediaUrl(currentVideo.video_path)}
-            className="w-full rounded-ios bg-black"
-          />
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="group relative block w-full overflow-hidden rounded-ios bg-black text-left"
+            style={{ aspectRatio: `${resultRatioSize.width} / ${resultRatioSize.height}` }}
+          >
+            {currentVideo.thumbnail_path ? (
+              <img
+                src={mediaUrl(currentVideo.thumbnail_path)}
+                alt={`视频 #${currentVideo.id} 缩略图`}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm text-white/70">
+                点击播放视频
+              </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-100 transition-colors group-hover:bg-black/20">
+              <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-ink shadow-float">
+                点击播放
+              </span>
+            </div>
+          </button>
           <div className="mt-3 flex items-center gap-2">
             <a
               href={mediaUrl(currentVideo.video_path)}
@@ -362,6 +531,22 @@ export default function VideoSynthesizer() {
             >下载 MP4</a>
           </div>
         </motion.section>
+      )}
+
+      {currentVideo && currentVideo.video_path && (
+        <Modal
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          title={`视频 #${currentVideo.id}`}
+          widthClass="max-w-[960px]"
+        >
+          <video
+            controls
+            autoPlay
+            src={mediaUrl(currentVideo.video_path)}
+            className="max-h-[78vh] w-full rounded-ios bg-black"
+          />
+        </Modal>
       )}
 
       {/* 历史 */}
@@ -394,4 +579,21 @@ export default function VideoSynthesizer() {
 
 function labelOfStage(id: string): string {
   return STAGES.find((s) => s.id === id)?.label ?? id
+}
+
+function ratioSizeForPreset(preset: 'portrait_9_16' | 'landscape_16_9' | 'square_1_1') {
+  if (preset === 'landscape_16_9') return { width: 1920, height: 1080 }
+  if (preset === 'square_1_1') return { width: 1080, height: 1080 }
+  return { width: 1080, height: 1920 }
+}
+
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
+function isHexColor(value: string): boolean {
+  return /^#[0-9A-Fa-f]{6}$/.test(value)
 }

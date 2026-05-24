@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .db import Base, SessionLocal, engine
+from .db_migrations import run_startup_migrations
 from .routers import bgms, copywrites, image_sets, prompts, settings, videos
 from .seed import seed_if_empty
 from .services.storage import UPLOAD_ROOT, ensure_upload_dirs
@@ -17,6 +18,7 @@ ensure_upload_dirs()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    run_startup_migrations(engine)
     db = SessionLocal()
     try:
         seed_if_empty(db)

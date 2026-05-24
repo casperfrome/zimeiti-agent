@@ -120,6 +120,7 @@ export interface VideoSummary {
   bgm_id: number | null
   status: 'pending' | 'running' | 'done' | 'failed'
   video_path: string | null
+  thumbnail_path: string | null
   video_duration: number | null
   created_at: string
 }
@@ -133,6 +134,9 @@ export interface VideoDetail extends VideoSummary {
   bgm_volume: number
   target_duration_seconds: number | null
   region: 'cn' | 'sg'
+  subtitle_font_color: string
+  subtitle_stroke_color: string
+  subtitle_font_size: number | null
   voice_path: string | null
   error: string | null
 }
