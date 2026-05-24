@@ -1,0 +1,96 @@
+{
+  "created_at": "2026-05-24T13:16:05+08:00",
+  "source_text": "清晨的城市还没有完全醒来，年轻的创业者独自走进一间小小的工作室。\n桌上摊着写满修改痕迹的计划书，墙上贴着一张被反复涂改的路线图。\n他打开电脑，屏幕的冷光照亮疲惫却坚定的脸。\n午后，团队成员陆续赶来，他们围在白板前争论、推翻、重写方案。\n夜晚的窗外灯火连成一片，他站在天台上看着远处的高楼，终于露出笑容。\n这一刻，他明白真正改变命运的不是突然出现的机会，而是每一次不肯放弃的选择。",
+  "config": {
+    "ollama_base_url": "http://127.0.0.1:11434",
+    "ollama_model": "qwen3:8b",
+    "image_model": "wanx2.0-t2i-turbo",
+    "image_size": "1024*1024",
+    "images_per_prompt": 1,
+    "negative_prompt": "低清晰度，畸形，文字水印，logo，多余手指，脸部崩坏，过曝，欠曝",
+    "prompt_extend": true,
+    "watermark": false,
+    "seed": null,
+    "dry_run_split_only": false
+  },
+  "prompts": [
+    {
+      "index": 1,
+      "prompt": "清晨的城市街道空无一人，年轻的创业者穿着休闲装走进一间昏暗的小工作室，桌上摊着写满修改痕迹的计划书，墙上贴着一张被反复涂改的路线图，光线柔和，构图简洁，风格写实，画面干净，情绪低沉"
+    },
+    {
+      "index": 2,
+      "prompt": "创业者坐在桌前，打开电脑，屏幕的冷光照亮他疲惫却坚定的脸，背景是凌乱的工作环境，光线冷色调，构图聚焦人物面部，风格电影感，画面真实，情绪清晰"
+    },
+    {
+      "index": 3,
+      "prompt": "午后，团队成员陆续走进工作室，围在白板前争论、推翻、重写方案，人物表情专注，光线自然，构图中景，风格写实，画面干净，情绪紧张"
+    },
+    {
+      "index": 4,
+      "prompt": "夜晚的窗外灯火连成一片，创业者站在天台上看着远处的高楼，表情终于露出笑容，背景是城市夜景，光线柔和，构图远景与人物结合，风格电影感，画面干净，情绪温暖"
+    },
+    {
+      "index": 5,
+      "prompt": "创业者站在天台上，背景是远处的高楼和灯火，表情露出坚定的微笑，光线柔和，构图中景，风格写实，画面干净，情绪积极"
+    }
+  ],
+  "images": [
+    {
+      "scene_index": 1,
+      "image_index": 1,
+      "request_id": "731862ef-4169-9b85-bdb9-1bf28bb3c724",
+      "task_id": "7efbf6e9-9e3f-469a-901a-d3b0e922fb04",
+      "task_status": "SUCCEEDED",
+      "url": "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/1d/90/20260524/15d68443/a3498338-de63-4f38-98ac-16165b6130eb-1-1.png?Expires=1779686196&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=3OLzx2vGhZyYXQdBFzbxppnyuSo%3D",
+      "orig_prompt": "清晨的城市街道空无一人，年轻的创业者穿着休闲装走进一间昏暗的小工作室，桌上摊着写满修改痕迹的计划书，墙上贴着一张被反复涂改的路线图，光线柔和，构图简洁，风格写实，画面干净，情绪低沉",
+      "actual_prompt": "best quality, 清晨微光斜透百叶窗，在空寂街道上投下细长阴影；年轻创业者身着皱褶衬衫与牛仔裤，指尖微颤地推开工作室木门。桌角堆着三叠计划书，纸页密布红蓝批注与箭头批注，咖啡渍在第十七页洇开淡褐痕迹；墙面上的路线图已覆三层透明胶带，铅笔轨迹如迷宫般反复覆盖又突围。灰白水泥地面映出他单薄轮廓，整体低饱和冷调，浅景深聚焦于摊开的纸页与半握的钢笔，静默中蓄积无声张力。",
+      "path": "D:\\AllPython\\AI短视频agent_260523\\backend\\tests\\output\\wanx_images\\scene_001_01.png"
+    },
+    {
+      "scene_index": 2,
+      "image_index": 1,
+      "request_id": "f56f938b-46b8-95c9-a6ba-42a9efa1f88c",
+      "task_id": "636fa3c8-1cad-4bc7-9b8c-cd903cdef992",
+      "task_status": "SUCCEEDED",
+      "url": "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/1d/41/20260524/15d68443/3626c1d5-8029-4d69-8e39-7a76ab209bdd-1-1.png?Expires=1779686207&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=nko%2F3QM2%2BDJEmClPNXVerDEensg%3D",
+      "orig_prompt": "创业者坐在桌前，打开电脑，屏幕的冷光照亮他疲惫却坚定的脸，背景是凌乱的工作环境，光线冷色调，构图聚焦人物面部，风格电影感，画面真实，情绪清晰",
+      "actual_prompt": "best quality, 创业者伏案而坐，指节微泛白地撑着额角，黑眼圈浓重却目光灼亮；笔记本屏幕泛出幽蓝冷光，映在眼镜片与下颌线上，勾勒出疲惫中不屈的轮廓。桌角堆着咖啡杯、散落的融资计划书与未拆封的能量棒，背景虚化处可见贴满便签的白板与窗外城市夜色。电影级侧逆光强化面部纹理，浅景深聚焦瞳孔反光，胶片颗粒质感烘托真实而克制的奋斗情绪。（120字）",
+      "path": "D:\\AllPython\\AI短视频agent_260523\\backend\\tests\\output\\wanx_images\\scene_002_01.png"
+    },
+    {
+      "scene_index": 3,
+      "image_index": 1,
+      "request_id": "db1ea7c0-a3e6-99be-8b96-e799d78c8911",
+      "task_id": "7c55c198-0278-4181-9ea9-83d9c6554abe",
+      "task_status": "SUCCEEDED",
+      "url": "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/1d/d6/20260524/15d68443/47a6f76c-a446-4187-b9d9-d2e255505878-1-1.png?Expires=1779686219&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=3ljnakcP9qkQzGKES%2BbcWw5L4M0%3D",
+      "orig_prompt": "午后，团队成员陆续走进工作室，围在白板前争论、推翻、重写方案，人物表情专注，光线自然，构图中景，风格写实，画面干净，情绪紧张",
+      "actual_prompt": "best quality, 午后斜阳透过落地窗漫入工作室，光束中微尘轻浮；五位团队成员围聚白板前——有人蹙眉执笔疾书，有人双臂抱臂沉思，另两人俯身激烈争辩，白板上密布彩色便签与反复擦写的思维导图。浅灰墙面、原木桌椅与绿植点缀背景，自然光勾勒人物轮廓，写实笔触精准捕捉紧绷下颌与微皱眉心。中景构图，画面干净利落，紧张感凝于空气之中。（120字）",
+      "path": "D:\\AllPython\\AI短视频agent_260523\\backend\\tests\\output\\wanx_images\\scene_003_01.png"
+    },
+    {
+      "scene_index": 4,
+      "image_index": 1,
+      "request_id": "fe724c0c-3cf8-9baa-901a-fc1d197698b3",
+      "task_id": "f9da4583-d06b-4dbf-87d4-82276a9e2ab0",
+      "task_status": "SUCCEEDED",
+      "url": "https://dashscope-result-sh.oss-cn-shanghai.aliyuncs.com/1d/08/20260524/c6e3cb4b/0065fec6-3aca-4bc3-88e4-bbeeed514343-1-1.png?Expires=1779686235&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=V7eAKRBjpEKB%2BxH2Ma75IQTFlc4%3D",
+      "orig_prompt": "夜晚的窗外灯火连成一片，创业者站在天台上看着远处的高楼，表情终于露出笑容，背景是城市夜景，光线柔和，构图远景与人物结合，风格电影感，画面干净，情绪温暖",
+      "actual_prompt": "best quality, 夜幕低垂，天台微风轻拂创业者额前碎发，他倚着栏杆远眺——远处霓虹如星河倾泻，玻璃幕墙映着暖黄灯火，勾勒出错落有致的都市天际线。他嘴角微扬，眼底映着光斑，衬衫袖口微卷，手边一杯将凉的咖啡氤氲余温。柔焦远景与清晰人物形成电影级景深，钴蓝夜空渐变为琥珀色天际，冷暖光交织，画面干净而饱含希望，静谧中涌动着温柔笃定的力量。（120字）",
+      "path": "D:\\AllPython\\AI短视频agent_260523\\backend\\tests\\output\\wanx_images\\scene_004_01.png"
+    },
+    {
+      "scene_index": 5,
+      "image_index": 1,
+      "request_id": "eacca772-271c-9e0d-9853-d6c00e02c1e2",
+      "task_id": "d9c0a1be-8ae4-4047-81c7-ea867d1cc523",
+      "task_status": "SUCCEEDED",
+      "url": "https://dashscope-result-sh.oss-cn-shanghai.aliyuncs.com/1d/7c/20260524/c6e3cb4b/e0e1a495-8308-452d-8158-afb3c317c4dc-1-1.png?Expires=1779686251&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=KP4wIhgQ1NPBEV4lxWr8dJgZLCc%3D",
+      "orig_prompt": "创业者站在天台上，背景是远处的高楼和灯火，表情露出坚定的微笑，光线柔和，构图中景，风格写实，画面干净，情绪积极",
+      "actual_prompt": "best quality, 创业者立于城市天台边缘，剪裁利落的浅灰西装映着暮色微光，发丝被晚风轻扬；他目光沉静望向远方，嘴角微扬透出笃定笑意。背景是渐次亮起的都市天际线，玻璃幕墙折射暖金余晖，点点灯火如星河初涌。柔光漫射勾勒轮廓，中景构图平衡稳重，写实笔触细腻呈现面料纹理与光影过渡，画面洁净通透，洋溢理性与希望并存的积极气韵。",
+      "path": "D:\\AllPython\\AI短视频agent_260523\\backend\\tests\\output\\wanx_images\\scene_005_01.png"
+    }
+  ],
+  "failures": []
+}

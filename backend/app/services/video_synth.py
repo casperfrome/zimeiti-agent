@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 import dashscope
 from dashscope.audio.tts_v2 import SpeechSynthesizer
@@ -76,10 +76,64 @@ def _setup_dashscope(api_key: str, region: str) -> None:
         )
 
 
+def _safe_response_field(response: Any, key: str) -> Any:
+    if response is None:
+        return None
+    if isinstance(response, dict):
+        return response.get(key)
+    return getattr(response, key, None)
+
+
+def _format_tts_failure(response: Any) -> str:
+    if response is None:
+        return "未返回音频数据"
+
+    header = _safe_response_field(response, "header")
+    code = (
+        _safe_response_field(response, "code")
+        or _safe_response_field(response, "error_code")
+        or _safe_response_field(header, "code")
+        or _safe_response_field(header, "error_code")
+    )
+    message = (
+        _safe_response_field(response, "message")
+        or _safe_response_field(response, "error_message")
+        or _safe_response_field(header, "message")
+        or _safe_response_field(header, "error_message")
+    )
+    request_id = (
+        _safe_response_field(response, "request_id")
+        or _safe_response_field(header, "request_id")
+    )
+    task_id = (
+        _safe_response_field(response, "task_id")
+        or _safe_response_field(header, "task_id")
+    )
+    event = _safe_response_field(response, "event") or _safe_response_field(header, "event")
+
+    parts = []
+    for name, value in (
+        ("code", code),
+        ("message", message),
+        ("request_id", request_id),
+        ("task_id", task_id),
+        ("event", event),
+    ):
+        if value:
+            parts.append(f"{name}={value}")
+
+    if parts:
+        return "，".join(parts)
+    return f"未返回音频数据，response={response!r}"
+
+
 def _tts_call(model: str, voice: str, speech_rate: float, text: str, output: Path) -> None:
     synthesizer = SpeechSynthesizer(model=model, voice=voice, speech_rate=speech_rate)
     audio_bytes = synthesizer.call(text)
-    output.write_bytes(audio_bytes)
+    if not isinstance(audio_bytes, (bytes, bytearray)) or not audio_bytes:
+        response = synthesizer.get_response()
+        raise RuntimeError(f"DashScope TTS 合成失败：{_format_tts_failure(response)}")
+    output.write_bytes(bytes(audio_bytes))
 
 
 def synthesize_voice(
