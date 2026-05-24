@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import threading
+import time
 from typing import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +23,36 @@ from ..services.video_synth import (
     resolve_video_size,
     synthesize_voice,
 )
+
+
+class _BuildProgress:
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.current_frame: int = 0
+        self.total_frames: int = 0
+        self.error: str | None = None
+        self.done: bool = False
+        self.result_path: Path | None = None
+
+    def set_frame(self, current: int, total: int) -> None:
+        with self.lock:
+            self.current_frame = current
+            self.total_frames = total
+
+    def set_done(self, path: Path) -> None:
+        with self.lock:
+            self.done = True
+            self.result_path = path
+
+    def set_error(self, msg: str) -> None:
+        with self.lock:
+            self.done = True
+            self.error = msg
+
+    def snapshot(self) -> tuple[int, int, bool, str | None, Path | None]:
+        with self.lock:
+            return (self.current_frame, self.total_frames, self.done, self.error, self.result_path)
+
 
 router = APIRouter()
 
@@ -150,30 +182,68 @@ def create_video(payload: VideoCreateRequest):
                     "voice_duration": voice_duration, "speech_rate": rate_used,
                 })
 
-                # 阶段 3：合成 MP4
+                # 阶段 3：合成 MP4（线程化 + GPU 编码 + 帧进度）
                 total_duration = payload.target_duration_seconds or voice_duration
-                yield sse_event("stage", {"stage": "build", "progress": 0.6})
                 output_path = work_dir / "output.mp4"
                 thumbnail_path = work_dir / "thumbnail.jpg"
                 bgm_path = abs_path(bgm.file_path) if bgm and bgm.file_path else None
-                build_slideshow(
-                    image_paths=processed,
-                    voice_path=voice_path,
-                    bgm_path=bgm_path,
-                    output_path=output_path,
-                    total_duration=total_duration,
-                    fps=payload.fps,
-                    voice_volume=payload.voice_volume,
-                    bgm_volume=payload.bgm_volume,
-                    subtitle_text=c.content,
-                    subtitle_font_color=subtitle_style.font_color,
-                    subtitle_stroke_color=subtitle_style.stroke_color,
-                    subtitle_font_size=subtitle_style.font_size,
-                    thumbnail_path=thumbnail_path,
-                )
+
+                progress = _BuildProgress()
+
+                def _build_target() -> None:
+                    try:
+                        result = build_slideshow(
+                            image_paths=processed,
+                            voice_path=voice_path,
+                            bgm_path=bgm_path,
+                            output_path=output_path,
+                            total_duration=total_duration,
+                            fps=payload.fps,
+                            voice_volume=payload.voice_volume,
+                            bgm_volume=payload.bgm_volume,
+                            subtitle_text=c.content,
+                            subtitle_font_color=subtitle_style.font_color,
+                            subtitle_stroke_color=subtitle_style.stroke_color,
+                            subtitle_font_size=subtitle_style.font_size,
+                            thumbnail_path=thumbnail_path,
+                            progress_callback=progress.set_frame,
+                        )
+                        progress.set_done(result)
+                    except Exception as exc:
+                        progress.set_error(str(exc))
+
+                build_thread = threading.Thread(target=_build_target, daemon=True)
+                total_frames_estimate = int(total_duration * payload.fps)
+                build_start = time.perf_counter()
+                build_thread.start()
+
+                yield sse_event("stage", {
+                    "stage": "build", "progress": 0.6,
+                    "frame_total": total_frames_estimate,
+                })
+
+                while True:
+                    cur, tot, done, err, result_path = progress.snapshot()
+                    if done:
+                        break
+                    if tot > 0:
+                        yield sse_event("stage", {
+                            "stage": "build",
+                            "frame_index": cur,
+                            "frame_total": tot,
+                        })
+                    time.sleep(0.3)
+
+                build_thread.join()
+                encoding_duration = time.perf_counter() - build_start
+
+                if err:
+                    raise RuntimeError(err)
+
                 v.video_path = rel_path(output_path)
                 v.thumbnail_path = rel_path(thumbnail_path)
                 v.video_duration = total_duration
+                v.encoding_duration = round(encoding_duration, 3)
                 v.status = "done"
                 db.commit()
 
@@ -182,6 +252,7 @@ def create_video(payload: VideoCreateRequest):
                     "video_path": v.video_path,
                     "thumbnail_path": v.thumbnail_path,
                     "video_duration": v.video_duration,
+                    "encoding_duration": v.encoding_duration,
                 })
             except Exception as exc:  # noqa: BLE001
                 v.status = "failed"

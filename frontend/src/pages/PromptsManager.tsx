@@ -94,7 +94,7 @@ export default function PromptsManager() {
             {tab === f.key && (
               <motion.span
                 layoutId="prompt-tab"
-                className="absolute inset-0 -z-0 rounded-[10px] bg-white shadow-card"
+                className="pointer-events-none absolute inset-0 -z-0 rounded-[10px] bg-white shadow-card"
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               />
             )}

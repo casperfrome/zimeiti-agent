@@ -10,7 +10,9 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
-from typing import Any, Iterable
+import shutil
+import subprocess
+from typing import Any, Callable, Iterable
 
 import dashscope
 from dashscope.audio.tts_v2 import SpeechSynthesizer
@@ -24,6 +26,7 @@ from moviepy import (
     concatenate_videoclips,
 )
 from moviepy.audio.fx import AudioLoop, MultiplyVolume
+from proglog import TqdmProgressBarLogger
 
 
 VIDEO_RATIO_PRESETS = {
@@ -53,6 +56,108 @@ COSYVOICE_DEPRECATED_V3_VOICE_ALIASES = {
     "longjing": "longxiaochun_v3",
     "longhua": "longxiaochun_v3",
 }
+
+
+# ---------------------------------------------------------------------------
+# GPU 硬件编码器检测
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class GpuEncoder:
+    codec: str
+    preset: str
+    ffmpeg_params: list[str]
+
+
+def detect_gpu_encoder() -> GpuEncoder | None:
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-encoders"],
+            capture_output=True, text=True, timeout=10,
+        )
+        encoders = result.stdout + result.stderr
+    except Exception:
+        return None
+
+    has_nvenc = "h264_nvenc" in encoders
+    has_amf = "h264_amf" in encoders
+    has_qsv = "h264_qsv" in encoders
+
+    if has_nvenc and _has_nvidia_gpu():
+        return GpuEncoder(
+            codec="h264_nvenc",
+            preset="p4",
+            ffmpeg_params=["-pix_fmt", "yuv420p"],
+        )
+    if has_amf and _has_amd_gpu():
+        return GpuEncoder(
+            codec="h264_amf",
+            preset="medium",
+            ffmpeg_params=["-quality", "quality", "-pix_fmt", "yuv420p"],
+        )
+    if has_qsv and _has_intel_gpu():
+        return GpuEncoder(
+            codec="h264_qsv",
+            preset="medium",
+            ffmpeg_params=["-pix_fmt", "yuv420p"],
+        )
+    return None
+
+
+def _has_nvidia_gpu() -> bool:
+    nvidia_smi = shutil.which("nvidia-smi")
+    if nvidia_smi is None:
+        return False
+    try:
+        return subprocess.run(
+            [nvidia_smi], capture_output=True, timeout=5,
+        ).returncode == 0
+    except Exception:
+        return False
+
+
+def _has_amd_gpu() -> bool:
+    try:
+        result = subprocess.run(
+            ["wmic", "path", "win32_VideoController", "get", "name"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return any(kw in result.stdout.lower() for kw in ("amd", "radeon"))
+    except Exception:
+        return False
+
+
+def _has_intel_gpu() -> bool:
+    try:
+        result = subprocess.run(
+            ["wmic", "path", "win32_VideoController", "get", "name"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return any(kw in result.stdout.lower() for kw in ("intel", "arc", "iris", "uhd"))
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# 帧进度记录器（用于 write_videofile 内部回调）
+# ---------------------------------------------------------------------------
+
+class FrameProgressLogger(TqdmProgressBarLogger):
+    def __init__(self, progress_callback: Callable[[int, int], None] | None = None,
+                 *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._progress_callback = progress_callback
+
+    def callback(self, **changes: Any) -> None:
+        if self._progress_callback is None:
+            return
+        bars = self.state.get("bars", {})
+        if "frame_index" in bars:
+            idx = bars["frame_index"].get("index", 0)
+            total = bars["frame_index"].get("total", 0)
+            if total > 0:
+                self._progress_callback(int(idx) + 1, int(total))
+
 
 
 @dataclass(frozen=True)
@@ -399,6 +504,8 @@ def build_slideshow(
     subtitle_stroke_color: str = DEFAULT_SUBTITLE_STROKE_COLOR,
     subtitle_font_size: int | None = None,
     thumbnail_path: Path | None = None,
+    codec: str | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> Path:
     if total_duration <= 0:
         raise RuntimeError("视频总时长必须大于 0。")
@@ -451,13 +558,20 @@ def build_slideshow(
         if thumbnail_path is not None:
             save_video_thumbnail(final_video, thumbnail_path)
 
+        gpu = detect_gpu_encoder()
+        _codec = codec or (gpu.codec if gpu else "libx264")
+        _preset = gpu.preset if gpu and codec is None else "medium"
+        _ffmpeg_params = list(gpu.ffmpeg_params if gpu else ["-pix_fmt", "yuv420p"])
+        _logger = FrameProgressLogger(progress_callback)
+
         final_video.write_videofile(
             str(output_path),
             fps=fps,
-            codec="libx264",
+            codec=_codec,
             audio_codec="aac",
-            threads=4,
-            ffmpeg_params=["-pix_fmt", "yuv420p"],
+            preset=_preset,
+            ffmpeg_params=_ffmpeg_params,
+            logger=_logger,
         )
     finally:
         for clip in (

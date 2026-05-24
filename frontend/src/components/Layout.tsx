@@ -63,7 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         {isActive && (
                           <motion.span
                             layoutId="nav-active"
-                            className="absolute inset-0 -z-0 rounded-ios bg-sage-100"
+                            className="pointer-events-none absolute inset-0 -z-0 rounded-ios bg-sage-100"
                             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                           />
                         )}

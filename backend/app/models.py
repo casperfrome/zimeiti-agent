@@ -165,5 +165,6 @@ class Video(Base):
     video_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
     thumbnail_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
     video_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
+    encoding_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)

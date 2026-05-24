@@ -6,6 +6,7 @@ VIDEO_COLUMNS = [
     ("subtitle_stroke_color", "VARCHAR(7) DEFAULT '#000000'"),
     ("subtitle_font_size", "INTEGER"),
     ("thumbnail_path", "VARCHAR(300)"),
+    ("encoding_duration", "FLOAT"),
 ]
 
 

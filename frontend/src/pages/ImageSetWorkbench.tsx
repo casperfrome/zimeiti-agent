@@ -56,10 +56,18 @@ export default function ImageSetWorkbench() {
   const [currentSet, setCurrentSet] = useState<ImageSetDetail | null>(null)
   const [items, setItems] = useState<ImageItemOut[]>([])
   const [regenItemId, setRegenItemId] = useState<number | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(false)
 
   // ---------- history ----------
   const [history, setHistory] = useState<ImageSetSummary[]>([])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   // ---------- init load ----------
   useEffect(() => {
@@ -78,15 +86,28 @@ export default function ImageSetWorkbench() {
       setSplitModelId(sm.find((m) => m.is_default)?.id)
       setSplitPromptId(sp.find((p) => p.is_default)?.id)
       setImageModelId(im.find((m) => m.is_default)?.id)
-    }).catch((e) => toast.push(e.message, 'err'))
+    }).catch((e) => { if (active) toast.push(e.message, 'err') })
     return () => { active = false }
   }, [])
 
   // Load history for selected copywrite
   useEffect(() => {
     if (copywriteId == null) { setHistory([]); return }
-    imageSetsApi.list(copywriteId).then(setHistory).catch(() => setHistory([]))
+    let active = true
+    imageSetsApi.list(copywriteId)
+      .then((data) => { if (active) setHistory(data) })
+      .catch(() => { if (active) setHistory([]) })
+    return () => { active = false }
   }, [copywriteId, currentSet])
+
+  useEffect(() => {
+    if (!generating || startedAt == null) return
+    setElapsedMs(Date.now() - startedAt)
+    const timer = window.setInterval(() => {
+      setElapsedMs(Date.now() - startedAt)
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [generating, startedAt])
 
   // ---------- handlers ----------
   async function doSplit() {
@@ -98,10 +119,14 @@ export default function ImageSetWorkbench() {
         split_model_id: splitModelId,
         prompt_id: splitPromptId,
       })
+      if (!mountedRef.current) return
       setPrompts(res.prompts)
       toast.push(`已生成 ${res.prompts.length} 条分镜 prompt`)
-    } catch (e: any) { toast.push(e.message, 'err') }
-    finally { setSplitting(false) }
+    } catch (e: any) {
+      if (mountedRef.current) toast.push(e.message, 'err')
+    } finally {
+      if (mountedRef.current) setSplitting(false)
+    }
   }
 
   function updatePrompt(idx: number, value: string) {
@@ -123,6 +148,9 @@ export default function ImageSetWorkbench() {
     setGenerating(true)
     setCurrentSet(null)
     setItems([])
+    const startTime = Date.now()
+    setStartedAt(startTime)
+    setElapsedMs(0)
     const ctrl = new AbortController(); abortRef.current = ctrl
     try {
       await streamSSE('/image-sets/generate', {
@@ -137,9 +165,11 @@ export default function ImageSetWorkbench() {
         watermark,
         seed: seed.trim() ? Number(seed) : undefined,
       }, async (event, data) => {
+        if (!mountedRef.current) return
         if (event === 'start') {
           // 拉取详情建立空 items 占位
           const detail = await imageSetsApi.get(data.image_set_id)
+          if (!mountedRef.current) return
           setCurrentSet(detail)
           setItems(detail.items)
         } else if (event === 'item') {
@@ -150,17 +180,24 @@ export default function ImageSetWorkbench() {
           ))
         } else if (event === 'done') {
           toast.push(`生成完成（成功 ${data.ok}，失败 ${data.fail}）`)
-          if (currentSet) {
-            imageSetsApi.get(currentSet.id).then(setCurrentSet).catch(() => {})
-          }
+          imageSetsApi.get(data.image_set_id)
+            .then((detail) => {
+              if (!mountedRef.current) return
+              setCurrentSet(detail)
+              setItems(detail.items)
+            })
+            .catch(() => {})
         } else if (event === 'error') {
           toast.push(data.message ?? '生成失败', 'err')
         }
       }, ctrl.signal)
     } catch (e: any) {
-      if (e.name !== 'AbortError') toast.push(e.message, 'err')
+      if (mountedRef.current && e.name !== 'AbortError') toast.push(e.message, 'err')
     } finally {
-      setGenerating(false)
+      if (mountedRef.current) {
+        setGenerating(false)
+        setElapsedMs(Date.now() - startTime)
+      }
     }
   }
 
@@ -174,6 +211,7 @@ export default function ImageSetWorkbench() {
         `/image-sets/${currentSet.id}/items/${item.id}/regenerate`,
         {},
         (event, data) => {
+          if (!mountedRef.current) return
           if (event === 'done') {
             setItems((arr) => arr.map((it) =>
               it.id === data.item_id
@@ -186,14 +224,19 @@ export default function ImageSetWorkbench() {
           }
         },
       )
-    } finally { setRegenItemId(null) }
+    } finally {
+      if (mountedRef.current) setRegenItemId(null)
+    }
   }
 
   async function openHistory(s: ImageSetSummary) {
     try {
       const d = await imageSetsApi.get(s.id)
+      if (!mountedRef.current) return
       setCurrentSet(d)
       setItems(d.items)
+      setStartedAt(null)
+      setElapsedMs(null)
       // 把生成参数回填到表单（方便复用/调整）
       setImageModelId(d.image_model_id ?? undefined)
       setSize(d.size)
@@ -206,17 +249,26 @@ export default function ImageSetWorkbench() {
         .filter((it, i, arr) => arr.findIndex((x) => x.scene_index === it.scene_index) === i)
         .map((it) => ({ index: it.scene_index, prompt: it.prompt })),
       )
-    } catch (e: any) { toast.push(e.message, 'err') }
+    } catch (e: any) {
+      if (mountedRef.current) toast.push(e.message, 'err')
+    }
   }
 
   async function deleteSet(s: ImageSetSummary) {
     if (!confirm(`确认删除该图片集？文件会一并清掉。`)) return
     try {
       await imageSetsApi.remove(s.id)
+      if (!mountedRef.current) return
       toast.push('已删除')
       if (currentSet?.id === s.id) { setCurrentSet(null); setItems([]) }
-      if (copywriteId != null) imageSetsApi.list(copywriteId).then(setHistory)
-    } catch (e: any) { toast.push(e.message, 'err') }
+      if (copywriteId != null) {
+        imageSetsApi.list(copywriteId).then((data) => {
+          if (mountedRef.current) setHistory(data)
+        })
+      }
+    } catch (e: any) {
+      if (mountedRef.current) toast.push(e.message, 'err')
+    }
   }
 
   const scenes = useMemo(() => {
@@ -228,6 +280,7 @@ export default function ImageSetWorkbench() {
     }
     return Array.from(map.entries()).sort(([a], [b]) => a - b)
   }, [items])
+  const elapsedLabel = elapsedMs == null ? null : formatElapsed(elapsedMs)
 
   return (
     <div>
@@ -245,7 +298,7 @@ export default function ImageSetWorkbench() {
             <label className="label mb-1.5 block">选择文案</label>
             <Select
               value={copywriteId}
-              onChange={(v) => { setCopywriteId(v); setPrompts([]); setCurrentSet(null); setItems([]) }}
+              onChange={(v) => { setCopywriteId(v); setPrompts([]); setCurrentSet(null); setItems([]); setStartedAt(null); setElapsedMs(null) }}
               options={copywrites.map((c) => ({ value: c.id, label: c.title || `文案 #${c.id}` }))}
               placeholder="未选择"
             />
@@ -401,6 +454,11 @@ export default function ImageSetWorkbench() {
               <Spinner size={14} /> 生成中…
             </span>
           )}
+          {elapsedLabel && (
+            <span className="rounded-full bg-sage-50 px-2.5 py-1 text-xs font-medium text-ink-soft">
+              生成耗时 {elapsedLabel}
+            </span>
+          )}
         </div>
       </section>
 
@@ -478,4 +536,11 @@ export default function ImageSetWorkbench() {
       )}
     </div>
   )
+}
+
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 }

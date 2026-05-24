@@ -66,16 +66,25 @@ export default function VideoSynthesizer() {
   const [history, setHistory] = useState<VideoSummary[]>([])
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [elapsedMs, setElapsedMs] = useState<number | null>(null)
+  const [frameProgress, setFrameProgress] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(false)
 
   // init
   useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
     Promise.all([
       copywritesApi.list(),
       bgmsApi.list(),
       settingsApi.listModels({ purpose: 'tts' }),
     ]).then(([cs, bs, ms]) => {
+      if (!active) return
       setCopywrites(cs)
       setBgms(bs)
       setTtsModels(ms)
@@ -85,18 +94,24 @@ export default function VideoSynthesizer() {
         const voices = voicesForModel(def.model_id)
         if (voices.length) setTtsVoice(voices[0].id)
       }
-    }).catch((e) => toast.push(e.message, 'err'))
+    }).catch((e) => { if (active) toast.push(e.message, 'err') })
+    return () => { active = false }
   }, [])
 
   // load image sets when copywrite changes
   useEffect(() => {
     if (copywriteId == null) { setImageSets([]); setImageSetId(undefined); setHistory([]); return }
+    let active = true
     imageSetsApi.list(copywriteId).then((sets) => {
+      if (!active) return
       const done = sets.filter((s) => s.status === 'done' || s.status === 'partial')
       setImageSets(done)
       setImageSetId(done[0]?.id)
-    }).catch(() => setImageSets([]))
-    videosApi.list(copywriteId).then(setHistory).catch(() => setHistory([]))
+    }).catch(() => { if (active) setImageSets([]) })
+    videosApi.list(copywriteId)
+      .then((data) => { if (active) setHistory(data) })
+      .catch(() => { if (active) setHistory([]) })
+    return () => { active = false }
   }, [copywriteId, currentVideo])
 
   // when tts model changes, update voice options
@@ -151,12 +166,15 @@ export default function VideoSynthesizer() {
     setCurrentVideo(null)
     setStage('')
     setLogs([])
+    setFrameProgress(null)
     setPreviewOpen(false)
     const startTime = Date.now()
     setStartedAt(startTime)
     setElapsedMs(0)
     const ctrl = new AbortController(); abortRef.current = ctrl
-    const pushLog = (line: string) => setLogs((arr) => [...arr, line])
+    const pushLog = (line: string) => {
+      if (mountedRef.current) setLogs((arr) => [...arr, line])
+    }
     try {
       await streamSSE('/videos', {
         copywrite_id: copywriteId,
@@ -174,19 +192,29 @@ export default function VideoSynthesizer() {
         subtitle_stroke_color: subtitleStrokeColor,
         subtitle_font_size: subtitleAutoSize ? null : subtitleFontSize,
       }, async (event, data) => {
+        if (!mountedRef.current) return
         if (event === 'start') {
           pushLog(`▷ 视频 #${data.video_id} 开始合成…`)
         } else if (event === 'stage') {
           setStage(data.stage)
+          if (data.stage === 'build' && data.frame_index != null) {
+            setFrameProgress(`${data.frame_index}/${data.frame_total}`)
+          }
           if (data.done) {
             pushLog(`✓ ${labelOfStage(data.stage)} 完成${data.voice_duration != null ? ` (配音 ${data.voice_duration.toFixed(2)}s, 语速 ${data.speech_rate}x)` : ''}`)
-          } else {
+          } else if (data.frame_index == null) {
             pushLog(`▷ ${labelOfStage(data.stage)}…`)
           }
         } else if (event === 'done') {
           setStage('done')
-          pushLog(`✓ 完成：${data.video_path} (${data.video_duration?.toFixed(2)}s)`)
-          videosApi.get(data.video_id).then(setCurrentVideo).catch(() => {})
+          setFrameProgress(null)
+          const encStr = data.encoding_duration != null
+            ? ` (编码耗时 ${data.encoding_duration.toFixed(1)}s)`
+            : ''
+          pushLog(`✓ 完成：${data.video_path}${encStr}`)
+          videosApi.get(data.video_id).then((detail) => {
+            if (mountedRef.current) setCurrentVideo(detail)
+          }).catch(() => {})
           toast.push('视频已合成')
         } else if (event === 'error') {
           pushLog(`✗ ${data.message}`)
@@ -194,10 +222,12 @@ export default function VideoSynthesizer() {
         }
       }, ctrl.signal)
     } catch (e: any) {
-      if (e.name !== 'AbortError') toast.push(e.message, 'err')
+      if (mountedRef.current && e.name !== 'AbortError') toast.push(e.message, 'err')
     } finally {
-      setRunning(false)
-      setElapsedMs(Date.now() - startTime)
+      if (mountedRef.current) {
+        setRunning(false)
+        setElapsedMs(Date.now() - startTime)
+      }
     }
   }
 
@@ -205,24 +235,34 @@ export default function VideoSynthesizer() {
 
   async function openHistory(v: VideoSummary) {
     try {
-      setCurrentVideo(await videosApi.get(v.id))
+      const detail = await videosApi.get(v.id)
+      if (!mountedRef.current) return
+      setCurrentVideo(detail)
       setLogs([])
       setStage('done')
       setStartedAt(null)
       setElapsedMs(null)
       setPreviewOpen(false)
+    } catch (e: any) {
+      if (mountedRef.current) toast.push(e.message, 'err')
     }
-    catch (e: any) { toast.push(e.message, 'err') }
   }
 
   async function deleteVideo(v: VideoSummary) {
     if (!confirm('确认删除该视频？')) return
     try {
       await videosApi.remove(v.id)
+      if (!mountedRef.current) return
       toast.push('已删除')
       if (currentVideo?.id === v.id) setCurrentVideo(null)
-      if (copywriteId != null) videosApi.list(copywriteId).then(setHistory)
-    } catch (e: any) { toast.push(e.message, 'err') }
+      if (copywriteId != null) {
+        videosApi.list(copywriteId).then((data) => {
+          if (mountedRef.current) setHistory(data)
+        })
+      }
+    } catch (e: any) {
+      if (mountedRef.current) toast.push(e.message, 'err')
+    }
   }
 
   const currentStageIndex = STAGES.findIndex((s) => s.id === stage)
@@ -480,6 +520,11 @@ export default function VideoSynthesizer() {
               )
             })}
           </div>
+          {frameProgress && stage === 'build' && (
+            <div className="mt-3 text-sm text-ink-soft">
+              编码第 {frameProgress} 帧
+            </div>
+          )}
           <div className="mt-4 max-h-48 overflow-y-auto rounded-ios bg-sage-50/40 p-3 font-mono text-xs leading-6 text-ink-soft">
             {logs.length === 0 && <div className="text-ink-mute">等待启动…</div>}
             {logs.map((l, i) => <div key={i}>{l}</div>)}

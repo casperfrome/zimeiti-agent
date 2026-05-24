@@ -12,9 +12,9 @@ import PromptsManager from './pages/PromptsManager'
 import VideoSynthesizer from './pages/VideoSynthesizer'
 
 const pageVariants = {
-  initial: { opacity: 0, y: 8 },
-  enter:   { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.22, 0.61, 0.36, 1] } },
-  exit:    { opacity: 0, y: -6, transition: { duration: 0.16 } },
+  initial: { opacity: 0, y: 8, pointerEvents: 'none' as const },
+  enter:   { opacity: 1, y: 0, pointerEvents: 'auto' as const, transition: { duration: 0.22, ease: [0.22, 0.61, 0.36, 1] } },
+  exit:    { opacity: 0, y: -6, pointerEvents: 'none' as const, transition: { duration: 0.16 } },
 }
 
 export default function App() {
