@@ -53,15 +53,19 @@ DEEPSEEK_PRICING_CNY_PER_MILLION = {
 LOCAL_PROXY = "http://127.0.0.1:10808"
 
 
-def resolve_model(db: Session, model_id: int | None) -> Model:
+def resolve_model(db: Session, model_id: int | None, purpose: str = "chat") -> Model:
     if model_id is not None:
         m = db.get(Model, model_id)
         if m is None:
             raise ValueError(f"model id {model_id} not found")
         return m
-    m = db.query(Model).filter(Model.is_default.is_(True)).first()
+    m = (
+        db.query(Model)
+        .filter(Model.purpose == purpose, Model.is_default.is_(True))
+        .first()
+    )
     if m is None:
-        raise ValueError("no default model configured")
+        raise ValueError(f"no default model configured for purpose={purpose}")
     return m
 
 

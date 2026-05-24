@@ -36,7 +36,7 @@ export default function CopywriteNew() {
   useEffect(() => {
     let active = true
     Promise.all([
-      settingsApi.listModels(),
+      settingsApi.listModels({ purpose: 'chat' }),
       promptsApi.list('copywrite_generate'),
     ]).then(([ms, ps]) => {
       if (!active) return

@@ -7,7 +7,7 @@ from ..schemas import PromptCreate, PromptOut, PromptUpdate
 
 router = APIRouter()
 
-ALLOWED_FUNCTIONS = {"copywrite_generate", "copywrite_polish"}
+ALLOWED_FUNCTIONS = {"copywrite_generate", "copywrite_polish", "image_prompt_split"}
 
 
 @router.get("", response_model=list[PromptOut])

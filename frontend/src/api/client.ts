@@ -16,6 +16,13 @@ export const api = {
   post:   <T>(p: string, body?: any)  => fetch(`${BASE}${p}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body ?? {}) }).then(handle<T>),
   put:    <T>(p: string, body?: any)  => fetch(`${BASE}${p}`, { method: 'PUT',  headers: {'Content-Type':'application/json'}, body: JSON.stringify(body ?? {}) }).then(handle<T>),
   delete: <T>(p: string)              => fetch(`${BASE}${p}`, { method: 'DELETE' }).then(handle<T>),
+  postForm:<T>(p: string, form: FormData) => fetch(`${BASE}${p}`, { method: 'POST', body: form }).then(handle<T>),
+}
+
+/** 资源文件相对路径 → 完整 URL（StaticFiles 挂在 /media） */
+export function mediaUrl(relPath: string | null | undefined): string {
+  if (!relPath) return ''
+  return `/media/${relPath.replace(/^\/+/, '')}`
 }
 
 /** Stream SSE events from a POST endpoint. Calls onEvent for each {event,data} pair. */

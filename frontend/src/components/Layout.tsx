@@ -3,10 +3,18 @@ import { NavLink } from 'react-router-dom'
 
 const groups = [
   {
-    title: '文案',
+    title: '内容生产',
     items: [
       { to: '/',                label: '所有文案', icon: ListIcon },
       { to: '/copywrites/new',  label: '新建文案', icon: PlusIcon },
+      { to: '/images',          label: '图片生成', icon: ImageIcon },
+      { to: '/videos',          label: '视频合成', icon: VideoIcon },
+    ],
+  },
+  {
+    title: '素材库',
+    items: [
+      { to: '/bgms', label: 'BGM',  icon: MusicIcon },
     ],
   },
   {
@@ -14,12 +22,6 @@ const groups = [
     items: [
       { to: '/prompts', label: 'Prompt', icon: ChatIcon },
       { to: '/models',  label: '模型与 Key', icon: KeyIcon },
-    ],
-  },
-  {
-    title: '更多',
-    items: [
-      { to: '/images', label: '图片生成', icon: ImageIcon },
     ],
   },
 ]
@@ -110,3 +112,5 @@ function PlusIcon()  { return <Icon><line x1="12" y1="5" x2="12" y2="19"/><line 
 function ChatIcon()  { return <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Icon> }
 function KeyIcon()   { return <Icon><circle cx="8" cy="15" r="4"/><path d="M10.5 12.5 21 2"/><path d="M17 6l3 3"/><path d="M14 9l2 2"/></Icon> }
 function ImageIcon() { return <Icon><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></Icon> }
+function VideoIcon() { return <Icon><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4z"/></Icon> }
+function MusicIcon() { return <Icon><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></Icon> }

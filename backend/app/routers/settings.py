@@ -50,11 +50,17 @@ def update_provider(provider_key: str, payload: ProviderUpdate, db: Session = De
 # ---------- models ----------
 
 @router.get("/models", response_model=list[ModelOut])
-def list_models(provider_key: str | None = None, db: Session = Depends(get_db)):
+def list_models(
+    provider_key: str | None = None,
+    purpose: str | None = None,
+    db: Session = Depends(get_db),
+):
     q = db.query(Model)
     if provider_key:
         q = q.filter(Model.provider_key == provider_key)
-    return q.order_by(Model.provider_key, Model.id).all()
+    if purpose:
+        q = q.filter(Model.purpose == purpose)
+    return q.order_by(Model.purpose, Model.provider_key, Model.id).all()
 
 
 @router.post("/models", response_model=ModelOut)
@@ -65,6 +71,7 @@ def create_model(payload: ModelCreate, db: Session = Depends(get_db)):
         provider_key=payload.provider_key,
         model_id=payload.model_id,
         display_name=payload.display_name,
+        purpose=payload.purpose,
         is_default=False,
     )
     db.add(m)
@@ -104,7 +111,7 @@ def set_default_model(mid: int, db: Session = Depends(get_db)):
     m = db.get(Model, mid)
     if m is None:
         raise HTTPException(404, "model not found")
-    db.query(Model).update({Model.is_default: False})
+    db.query(Model).filter(Model.purpose == m.purpose).update({Model.is_default: False})
     m.is_default = True
     db.commit()
     db.refresh(m)

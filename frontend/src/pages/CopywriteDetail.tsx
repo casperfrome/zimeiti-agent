@@ -43,7 +43,7 @@ export default function CopywriteDetail() {
   useEffect(() => {
     let active = true
     copywritesApi.get(cid).then((c) => { if (active) { setCw(c); setTitle(c.title); setContent(c.content); setVersions(c.versions) } }).catch((e) => { if (active) toast.push(e.message, 'err') })
-    Promise.all([settingsApi.listModels(), promptsApi.list('copywrite_polish')]).then(([ms, ps]) => {
+    Promise.all([settingsApi.listModels({ purpose: 'chat' }), promptsApi.list('copywrite_polish')]).then(([ms, ps]) => {
       if (!active) return
       setModels(ms); setPrompts(ps)
       setPolishModelId(ms.find((m) => m.is_default)?.id)
