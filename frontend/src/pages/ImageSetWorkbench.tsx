@@ -51,6 +51,8 @@ export default function ImageSetWorkbench() {
 
   // ---------- runtime ----------
   const [splitting, setSplitting] = useState(false)
+  const [splitStartedAt, setSplitStartedAt] = useState<number | null>(null)
+  const [splitElapsedMs, setSplitElapsedMs] = useState<number | null>(null)
   const [prompts, setPrompts] = useState<PromptItem[]>([])
   const [generating, setGenerating] = useState(false)
   const [currentSet, setCurrentSet] = useState<ImageSetDetail | null>(null)
@@ -109,10 +111,22 @@ export default function ImageSetWorkbench() {
     return () => window.clearInterval(timer)
   }, [generating, startedAt])
 
+  useEffect(() => {
+    if (!splitting || splitStartedAt == null) return
+    setSplitElapsedMs(Date.now() - splitStartedAt)
+    const timer = window.setInterval(() => {
+      setSplitElapsedMs(Date.now() - splitStartedAt)
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [splitting, splitStartedAt])
+
   // ---------- handlers ----------
   async function doSplit() {
     if (copywriteId == null) { toast.push('请先选择文案', 'err'); return }
     setSplitting(true)
+    const startTime = Date.now()
+    setSplitStartedAt(startTime)
+    setSplitElapsedMs(0)
     try {
       const res = await imageSetsApi.split({
         copywrite_id: copywriteId,
@@ -125,7 +139,10 @@ export default function ImageSetWorkbench() {
     } catch (e: any) {
       if (mountedRef.current) toast.push(e.message, 'err')
     } finally {
-      if (mountedRef.current) setSplitting(false)
+      if (mountedRef.current) {
+        setSplitting(false)
+        setSplitElapsedMs(Date.now() - startTime)
+      }
     }
   }
 
@@ -281,6 +298,7 @@ export default function ImageSetWorkbench() {
     return Array.from(map.entries()).sort(([a], [b]) => a - b)
   }, [items])
   const elapsedLabel = elapsedMs == null ? null : formatElapsed(elapsedMs)
+  const splitElapsedLabel = splitElapsedMs == null ? null : formatElapsed(splitElapsedMs)
 
   return (
     <div>
@@ -298,7 +316,7 @@ export default function ImageSetWorkbench() {
             <label className="label mb-1.5 block">选择文案</label>
             <Select
               value={copywriteId}
-              onChange={(v) => { setCopywriteId(v); setPrompts([]); setCurrentSet(null); setItems([]); setStartedAt(null); setElapsedMs(null) }}
+              onChange={(v) => { setCopywriteId(v); setPrompts([]); setCurrentSet(null); setItems([]); setStartedAt(null); setElapsedMs(null); setSplitStartedAt(null); setSplitElapsedMs(null) }}
               options={copywrites.map((c) => ({ value: c.id, label: c.title || `文案 #${c.id}` }))}
               placeholder="未选择"
             />
@@ -337,6 +355,11 @@ export default function ImageSetWorkbench() {
             ? <span className="text-xs text-amber-600">↑ 请先在上方选择一条文案</span>
             : prompts.length > 0 && <span className="text-xs text-ink-mute">{prompts.length} 条 prompt</span>
           }
+          {splitElapsedLabel && (
+            <span className="rounded-full bg-sage-50 px-2.5 py-1 text-xs font-medium text-ink-soft">
+              分镜耗时 {splitElapsedLabel}
+            </span>
+          )}
         </div>
 
         {prompts.length > 0 && (

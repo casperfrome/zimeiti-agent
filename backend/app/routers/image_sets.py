@@ -1,7 +1,8 @@
 """图片集：分镜拆分（非流式）+ 批量生图（SSE）+ 单张重生（SSE）+ 列表/详情/删除。"""
 from __future__ import annotations
 
-from typing import Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Iterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -169,12 +170,13 @@ def generate(payload: ImageGenerateRequest):
             fail_count = 0
             api_key = ali_provider.api_key
 
-            for p in payload.prompts:
+            def _run_prompt(prompt_item) -> dict[str, Any]:
+                """线程内：调 DashScope + 逐张下载到本地。异常吞掉写入返回值。"""
                 try:
                     results = generate_one(
                         api_key=api_key,
                         model_id=image_model.model_id,
-                        prompt=p.prompt,
+                        prompt=prompt_item.prompt,
                         size=payload.size,
                         n=payload.n_per_prompt,
                         negative_prompt=payload.negative_prompt,
@@ -183,53 +185,77 @@ def generate(payload: ImageGenerateRequest):
                         seed=payload.seed,
                     )
                 except Exception as exc:  # noqa: BLE001
-                    msg = str(exc)
-                    # 把该场景下所有 item 标 failed
-                    scene_items = [it for it in items if it.scene_index == p.index]
-                    for it in scene_items:
-                        it.status = "failed"
-                        it.error = msg
-                    fail_count += len(scene_items)
-                    db.commit()
-                    for it in scene_items:
+                    return {"prompt_index": prompt_item.index, "api_error": str(exc), "downloads": []}
+
+                downloads: list[dict[str, Any]] = []
+                for img_idx, result in enumerate(results, start=1):
+                    entry: dict[str, Any] = {
+                        "img_idx": img_idx,
+                        "url": result["url"],
+                        "request_id": result.get("request_id"),
+                    }
+                    try:
+                        dest = target_dir / f"scene_{prompt_item.index:03d}_{img_idx:02d}.png"
+                        download_to(result["url"], dest)
+                        entry["dest_rel"] = rel_path(dest)
+                    except Exception as exc:  # noqa: BLE001
+                        entry["error"] = str(exc)
+                    downloads.append(entry)
+                return {"prompt_index": prompt_item.index, "api_error": None, "downloads": downloads}
+
+            max_workers = max(1, min(len(payload.prompts), 4))
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = [pool.submit(_run_prompt, p) for p in payload.prompts]
+                for fut in as_completed(futures):
+                    result = fut.result()
+                    p_index = result["prompt_index"]
+
+                    if result["api_error"]:
+                        msg = result["api_error"]
+                        scene_items = [it for it in items if it.scene_index == p_index]
+                        for it in scene_items:
+                            it.status = "failed"
+                            it.error = msg
+                        fail_count += len(scene_items)
+                        db.commit()
+                        for it in scene_items:
+                            yield sse_event("item", {
+                                "item_id": it.id,
+                                "scene_index": it.scene_index,
+                                "image_index": it.image_index,
+                                "status": "failed",
+                                "error": msg,
+                            })
+                        continue
+
+                    for entry in result["downloads"]:
+                        it = next(
+                            (x for x in items
+                             if x.scene_index == p_index and x.image_index == entry["img_idx"]),
+                            None,
+                        )
+                        if it is None:
+                            continue
+                        if entry.get("error"):
+                            it.status = "failed"
+                            it.error = entry["error"]
+                            fail_count += 1
+                        else:
+                            it.file_path = entry["dest_rel"]
+                            it.source_url = entry["url"]
+                            it.request_id = entry.get("request_id")
+                            it.status = "done"
+                            ok_count += 1
+                        db.commit()
+
                         yield sse_event("item", {
                             "item_id": it.id,
                             "scene_index": it.scene_index,
                             "image_index": it.image_index,
-                            "status": "failed",
-                            "error": msg,
+                            "status": it.status,
+                            "file_path": it.file_path,
+                            "error": it.error,
                         })
-                    continue
-
-                for img_idx, result in enumerate(results, start=1):
-                    it = next(
-                        (x for x in items if x.scene_index == p.index and x.image_index == img_idx),
-                        None,
-                    )
-                    if it is None:
-                        continue
-                    try:
-                        dest = target_dir / f"scene_{p.index:03d}_{img_idx:02d}.png"
-                        download_to(result["url"], dest)
-                        it.file_path = rel_path(dest)
-                        it.source_url = result["url"]
-                        it.request_id = result.get("request_id")
-                        it.status = "done"
-                        ok_count += 1
-                    except Exception as exc:  # noqa: BLE001
-                        it.status = "failed"
-                        it.error = str(exc)
-                        fail_count += 1
-                    db.commit()
-
-                    yield sse_event("item", {
-                        "item_id": it.id,
-                        "scene_index": it.scene_index,
-                        "image_index": it.image_index,
-                        "status": it.status,
-                        "file_path": it.file_path,
-                        "error": it.error,
-                    })
 
             iset.status = (
                 "done" if fail_count == 0
