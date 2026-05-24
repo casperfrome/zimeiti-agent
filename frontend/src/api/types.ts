@@ -123,6 +123,7 @@ export interface VideoSummary {
   thumbnail_path: string | null
   video_duration: number | null
   encoding_duration: number | null
+  codec_used: string | null
   created_at: string
 }
 

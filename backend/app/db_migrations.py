@@ -7,6 +7,7 @@ VIDEO_COLUMNS = [
     ("subtitle_font_size", "INTEGER"),
     ("thumbnail_path", "VARCHAR(300)"),
     ("encoding_duration", "FLOAT"),
+    ("codec_used", "VARCHAR(30)"),
 ]
 
 

@@ -69,6 +69,12 @@ class GpuEncoder:
     ffmpeg_params: list[str]
 
 
+@dataclass(frozen=True)
+class BuildResult:
+    output_path: Path
+    codec_used: str
+
+
 def detect_gpu_encoder() -> GpuEncoder | None:
     try:
         result = subprocess.run(
@@ -506,7 +512,7 @@ def build_slideshow(
     thumbnail_path: Path | None = None,
     codec: str | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
-) -> Path:
+) -> BuildResult:
     if total_duration <= 0:
         raise RuntimeError("视频总时长必须大于 0。")
     if not image_paths:
@@ -590,4 +596,4 @@ def build_slideshow(
                 except Exception:
                     pass
 
-    return output_path
+    return BuildResult(output_path, _codec)

@@ -209,7 +209,7 @@ export default function VideoSynthesizer() {
           setStage('done')
           setFrameProgress(null)
           const encStr = data.encoding_duration != null
-            ? ` (编码耗时 ${data.encoding_duration.toFixed(1)}s)`
+            ? ` (编码耗时 ${data.encoding_duration.toFixed(1)}s${data.codec_used ? `，${codecLabel(data.codec_used)}` : ''})`
             : ''
           pushLog(`✓ 完成：${data.video_path}${encStr}`)
           videosApi.get(data.video_id).then((detail) => {
@@ -641,4 +641,18 @@ function formatElapsed(ms: number): string {
 
 function isHexColor(value: string): boolean {
   return /^#[0-9A-Fa-f]{6}$/.test(value)
+}
+
+function codecLabel(codec: string): string {
+  const map: Record<string, string> = {
+    h264_nvenc: 'NVIDIA NVENC 加速',
+    hevc_nvenc: 'NVIDIA NVENC 加速',
+    h264_amf: 'AMD AMF 加速',
+    hevc_amf: 'AMD AMF 加速',
+    h264_qsv: 'Intel QSV 加速',
+    hevc_qsv: 'Intel QSV 加速',
+    libx264: 'CPU 软编码',
+    libx265: 'CPU 软编码',
+  }
+  return map[codec] ?? codec
 }

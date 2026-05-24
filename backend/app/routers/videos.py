@@ -17,6 +17,7 @@ from ..schemas import VideoCreateRequest, VideoDetail, VideoSummary
 from ..services.sse import sse_event
 from ..services.storage import abs_path, rel_path, remove_dir, video_dir
 from ..services.video_synth import (
+    BuildResult,
     build_slideshow,
     normalize_subtitle_style,
     prepare_images,
@@ -32,26 +33,26 @@ class _BuildProgress:
         self.total_frames: int = 0
         self.error: str | None = None
         self.done: bool = False
-        self.result_path: Path | None = None
+        self.result: BuildResult | None = None
 
     def set_frame(self, current: int, total: int) -> None:
         with self.lock:
             self.current_frame = current
             self.total_frames = total
 
-    def set_done(self, path: Path) -> None:
+    def set_done(self, result: BuildResult) -> None:
         with self.lock:
             self.done = True
-            self.result_path = path
+            self.result = result
 
     def set_error(self, msg: str) -> None:
         with self.lock:
             self.done = True
             self.error = msg
 
-    def snapshot(self) -> tuple[int, int, bool, str | None, Path | None]:
+    def snapshot(self) -> tuple[int, int, bool, str | None, BuildResult | None]:
         with self.lock:
-            return (self.current_frame, self.total_frames, self.done, self.error, self.result_path)
+            return (self.current_frame, self.total_frames, self.done, self.error, self.result)
 
 
 router = APIRouter()
@@ -223,7 +224,7 @@ def create_video(payload: VideoCreateRequest):
                 })
 
                 while True:
-                    cur, tot, done, err, result_path = progress.snapshot()
+                    cur, tot, done, err, result = progress.snapshot()
                     if done:
                         break
                     if tot > 0:
@@ -240,10 +241,11 @@ def create_video(payload: VideoCreateRequest):
                 if err:
                     raise RuntimeError(err)
 
-                v.video_path = rel_path(output_path)
+                v.video_path = rel_path(result.output_path)
                 v.thumbnail_path = rel_path(thumbnail_path)
                 v.video_duration = total_duration
                 v.encoding_duration = round(encoding_duration, 3)
+                v.codec_used = result.codec_used
                 v.status = "done"
                 db.commit()
 
@@ -253,6 +255,7 @@ def create_video(payload: VideoCreateRequest):
                     "thumbnail_path": v.thumbnail_path,
                     "video_duration": v.video_duration,
                     "encoding_duration": v.encoding_duration,
+                    "codec_used": v.codec_used,
                 })
             except Exception as exc:  # noqa: BLE001
                 v.status = "failed"

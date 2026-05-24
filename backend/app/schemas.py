@@ -246,6 +246,7 @@ class VideoSummary(BaseModel):
     thumbnail_path: str | None = None
     video_duration: float | None = None
     encoding_duration: float | None = None
+    codec_used: str | None = None
     created_at: datetime
 
 
